@@ -1,0 +1,16 @@
+{
+  "Rakan": {
+    "ad_heavy,cc_heavy,fighting_adc,has_assassin,late_game,mixed_dmg": {
+      "keystone:Guardian": {
+        "score": 0.2,
+        "n": 1
+      }
+    },
+    "ad_heavy,cc_heavy,has_assassin,mixed_dmg": {
+      "keystone:Guardian": {
+        "score": 0.1986,
+        "n": 1
+      }
+    }
+  }
+}
