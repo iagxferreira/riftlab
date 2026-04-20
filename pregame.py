@@ -1,0 +1,290 @@
+"""
+pregame.py — Full loading screen briefing for your current game.
+Run this as soon as champion select ends.
+
+Usage:
+  python pregame.py main
+  python pregame.py lab
+"""
+
+import sys
+import time
+import argparse
+
+from dotenv import load_dotenv
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
+from rich.rule import Rule
+from rich import box
+
+from lol_stats import get_account, get_match_ids, get_match, extract_participant, BASE_SUMMONER, _get, ACCOUNTS
+from comp_check import (
+    analyze_comp, generate_matchup_insights, recommend_build,
+    build_context, champ_name_from_id, _load_champ_id_map,
+    resolve, comp_table, print_insights, ACCOUNTS,
+)
+from build_advisor import fetch_live_data, aggregate_threats, get_adaptive_recommendations, print_enemy_read, print_recommendations
+
+load_dotenv()
+console = Console()
+
+
+# ---------------------------------------------------------------------------
+# Recent form
+# ---------------------------------------------------------------------------
+
+def get_recent_form(puuid: str, n: int = 5) -> list[dict]:
+    match_ids = get_match_ids(puuid, count=n)
+    rows = []
+    for mid in match_ids:
+        try:
+            match = get_match(mid)
+            p = extract_participant(match, puuid)
+            if not p: continue
+            dur = match["info"]["gameDuration"] / 60
+            if dur < 5: continue
+            ch = p.get("challenges", {})
+            rows.append({
+                "champion": p["championName"],
+                "win":      p["win"],
+                "deaths":   p["deaths"],
+                "kp":       ch.get("killParticipation", 0),
+                "vision":   p["visionScore"],
+            })
+        except Exception:
+            pass
+        time.sleep(0.05)
+    return rows
+
+
+def print_recent_form(rows: list[dict]):
+    t = Table(title="Recent Form (last 5)", box=box.SIMPLE, show_header=True)
+    t.add_column("Champion", style="cyan")
+    t.add_column("Result",   justify="center")
+    t.add_column("Deaths",   justify="center")
+    t.add_column("KP%",      justify="right")
+    t.add_column("Vision",   justify="right")
+
+    for r in rows:
+        result = "[green]W[/green]" if r["win"] else "[red]L[/red]"
+        d_col  = "green" if r["deaths"] <= 5 else ("yellow" if r["deaths"] <= 8 else "red")
+        t.add_row(
+            r["champion"], result,
+            f"[{d_col}]{r['deaths']}[/{d_col}]",
+            f"{r['kp']*100:.0f}%",
+            str(r["vision"]),
+        )
+
+    # Summary line
+    wr    = sum(1 for r in rows if r["win"]) / len(rows) * 100 if rows else 0
+    avg_d = sum(r["deaths"] for r in rows) / len(rows) if rows else 0
+    avg_ed_note = "[green]On a good streak[/green]" if wr >= 60 else ("[yellow]Mixed form[/yellow]" if wr >= 40 else "[red]Rough patch[/red]")
+
+    console.print(t)
+    console.print(f"  {avg_ed_note}   WR: [bold]{wr:.0f}%[/bold]   Avg deaths: [bold]{avg_d:.1f}[/bold]\n")
+
+
+# ---------------------------------------------------------------------------
+# Loading screen tips — the main coaching block
+# ---------------------------------------------------------------------------
+
+def generate_loading_tips(
+    my_champ: str,
+    ally_comp: dict,
+    enemy_comp: dict,
+    threats: dict,
+    recent_form: list[dict],
+) -> list[tuple[str, str]]:
+    tips = []
+
+    mc = resolve(my_champ)
+    my_data = mc[1] if mc else {}
+    role = my_data.get("cls", "")
+
+    # --- Early death reminder (personal pattern) ---
+    if recent_form:
+        avg_deaths = sum(r["deaths"] for r in recent_form) / len(recent_form)
+        recent_wins = [r for r in recent_form if r["win"]]
+        recent_losses = [r for r in recent_form if not r["win"]]
+        if avg_deaths > 7:
+            tips.append(("warn",
+                f"You've been averaging [bold]{avg_deaths:.1f} deaths[/bold] recently. "
+                "Your #1 priority this game is surviving the first 15 minutes. "
+                "Don't fight unless you're sure you win."))
+
+    # --- Win condition ---
+    ally_wc  = ally_comp["primary_win_con"]
+    enemy_wc = enemy_comp["primary_win_con"]
+    wc_advice = {
+        "engage":     "Look for grouped enemies and chain CC — your team wants to start fights.",
+        "pick":       "Wait for someone to overextend, then punish. Don't force teamfights.",
+        "teamfight":  "Stay grouped from 15 min onward. Your comp wins 5v5, not skirmishes.",
+        "poke":       "Poke them below 60% before committing to a fight. Don't all-in at full HP.",
+        "scale":      "Survive early, don't trade objectives for kills. Your power comes at 3 items.",
+        "splitpush":  "Apply pressure in two lanes — don't group mindlessly.",
+    }
+    tips.append(("info",
+        f"[bold]Your win condition:[/bold] {ally_wc.upper()} — {wc_advice.get(ally_wc, 'play to your comp strengths.')}"))
+
+    # --- Enemy win condition counter ---
+    counter_advice = {
+        "engage":    "Don't cluster in one spot — spread out so their engage can't hit everyone.",
+        "pick":      "Ward tribush and river before walking anywhere. Don't face-check bushes.",
+        "teamfight": "Avoid 5v5 if they're ahead. Look for picks on their carries instead.",
+        "poke":      "Don't fight at half HP. Recall when poked down, then come back full.",
+        "scale":     "Force early objectives — don't let this go to 30+ min.",
+        "splitpush": "Match their split or collapse with 3+. Never send one person to answer.",
+    }
+    tips.append(("warn",
+        f"[bold]Enemy win condition:[/bold] {enemy_wc.upper()} — {counter_advice.get(enemy_wc, 'respect their game plan.')}"))
+
+    # --- Frontline check ---
+    if len(ally_comp["frontline"]) == 0:
+        tips.append(("warn",
+            "No frontline on your team. You can't hard engage into a standard fight — "
+            "play for picks and protect your carries."))
+
+    # --- Scaling window ---
+    if len(enemy_comp["late_scalers"]) >= 2:
+        scalers = ", ".join(enemy_comp["late_scalers"])
+        tips.append(("warn",
+            f"[bold]{scalers}[/bold] scale hard — force a decision before 25 min. "
+            "Take objectives, don't let them farm."))
+
+    if len(ally_comp["late_scalers"]) >= 2:
+        tips.append(("info",
+            f"Your team scales late ({', '.join(ally_comp['late_scalers'])}). "
+            "Don't throw a win by forcing bad early fights. Play safe and spike with items."))
+
+    # --- High mobility enemy ---
+    if len(enemy_comp["high_mobility"]) >= 3:
+        tips.append(("warn",
+            f"Enemy has {len(enemy_comp['high_mobility'])} mobile champions "
+            f"({', '.join(enemy_comp['high_mobility'])}). "
+            "Land CC before they can dash away — don't chase after a missed engage."))
+
+    # --- Assassin threat ---
+    if enemy_comp["assassins"]:
+        tips.append(("warn",
+            f"[bold]{', '.join(enemy_comp['assassins'])}[/bold] will go for your squishiest carry. "
+            "As Rakan: save W to knock them away from your ADC, don't use it to initiate when assassins are alive."))
+
+    # --- GW reminder ---
+    if threats.get("healing", 0) >= 2:
+        tips.append(("warn",
+            "Enemy has healing — buy [bold]Chemtech Putrifier[/bold] before your 3rd item. "
+            "Applies GW through your shields automatically."))
+
+    # --- Rakan-specific mental checklist ---
+    if my_champ.lower() == "rakan":
+        adc_names = [n for n, c in ally_comp["resolved"] if c["cls"] == "marksman"]
+        fighting_adcs = {"Samira", "Draven", "Jinx", "Tristana", "Kaisa"}
+        peel_adcs = {"Vayne", "Ezreal", "Aphelios", "Caitlyn", "Jhin"}
+
+        if adc_names:
+            adc = adc_names[0]
+            if adc in fighting_adcs:
+                tips.append(("good",
+                    f"[bold]{adc}[/bold] wants to fight — this is a good Rakan pairing. "
+                    "Look for level 2 all-in. Use R to start, let them follow."))
+            elif adc in peel_adcs:
+                tips.append(("info",
+                    f"[bold]{adc}[/bold] needs peel, not all-ins. "
+                    "Play near them, use W to intercept dives. Don't leave them alone."))
+
+        engage_allies = [n for n, c in ally_comp["resolved"]
+                         if c["win_con"] == "engage" and n.lower() != "rakan"]
+        if engage_allies:
+            tips.append(("good",
+                f"[bold]{', '.join(engage_allies)}[/bold] also engages — "
+                "let them go in first, then R as follow-up for max impact."))
+
+        tips.append(("info",
+            "[bold]Rakan checklist:[/bold] "
+            "① Don't die level 1-2  "
+            "② Pop Locket the moment you land R  "
+            "③ Knight's Vow on your ADC before first back  "
+            "④ W to save, not to initiate, when assassins are alive"))
+
+    return tips
+
+
+def print_loading_tips(tips: list[tuple[str, str]]):
+    ICONS = {"good": "[green]✓[/green]", "warn": "[yellow]![/yellow]", "info": "[blue]→[/blue]"}
+    lines = [f"{ICONS.get(lvl, '·')}  {msg}" for lvl, msg in tips]
+    console.print(Panel(
+        "\n\n".join(lines),
+        title="[bold]Loading Screen Briefing[/bold]",
+        border_style="cyan",
+        padding=(1, 2),
+    ))
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+def main():
+    parser = argparse.ArgumentParser(description="Loading screen pregame briefing")
+    parser.add_argument("account", choices=list(ACCOUNTS.keys()))
+    args = parser.parse_args()
+
+    account_str = ACCOUNTS[args.account]
+    game_name, tag = account_str.rsplit("#", 1)
+
+    console.print()
+    console.print(Rule(f"[bold cyan]Pregame Briefing — {account_str}[/bold cyan]"))
+    console.print()
+
+    # Fetch live game
+    console.print("[dim]Reading live game...[/dim]")
+    my_champ, enemy_champs, keystones = fetch_live_data(args.account)
+
+    _load_champ_id_map()
+    try:
+        data = _get(f"{BASE_SUMMONER}/lol/spectator/v5/active-games/by-summoner/{(lambda: get_account(game_name, tag)['puuid'])()}")
+        my_team_id = next(p["teamId"] for p in data["participants"]
+                          if champ_name_from_id(p["championId"]) == my_champ)
+        ally_names = [champ_name_from_id(p["championId"]) for p in data["participants"]
+                      if p["teamId"] == my_team_id and champ_name_from_id(p["championId"]) != my_champ]
+    except Exception:
+        ally_names = []
+
+    # Fetch recent form in parallel with comp analysis
+    console.print("[dim]Fetching recent form...[/dim]")
+    acct  = get_account(game_name, tag)
+    puuid = acct["puuid"]
+    recent_form = get_recent_form(puuid, n=5)
+
+    # Comp analysis
+    ally_comp  = analyze_comp([my_champ] + ally_names)
+    enemy_comp = analyze_comp([n for n, _ in enemy_champs])
+    threats    = aggregate_threats(enemy_champs, keystones, {})
+    threats["names_with_shields"] = []
+
+    # Print sections
+    console.print(Rule("[bold]Recent Form[/bold]"))
+    print_recent_form(recent_form)
+
+    console.print(Rule("[bold]Comp Overview[/bold]"))
+    console.print(comp_table("Your Team",  ally_comp,  "green"))
+    console.print(comp_table("Enemy Team", enemy_comp, "red"))
+
+    console.print(Rule("[bold]Enemy Keystones[/bold]"))
+    print_enemy_read(enemy_champs, keystones, {})
+
+    console.print(Rule("[bold]Build[/bold]"))
+    recommendations = get_adaptive_recommendations(my_champ, threats, {})
+    print_recommendations(my_champ, recommendations)
+
+    console.print(Rule("[bold]Game Plan[/bold]"))
+    tips = generate_loading_tips(my_champ, ally_comp, enemy_comp, threats, recent_form)
+    print_loading_tips(tips)
+
+    console.print(Rule(f"[bold green]GL HF[/bold green]"))
+    console.print()
+
+
+if __name__ == "__main__":
+    main()
