@@ -110,6 +110,22 @@ ITEM_THREATS: dict[str, dict] = {
     "warmogs":      dict(healing=False, shields=False, crit=False, ad=False, ap=False, tank=True,  on_hit=False),
     "triforce":     dict(healing=False, shields=False, crit=False, ad=True,  ap=False, tank=False, on_hit=False),
     "iceborn":      dict(healing=False, shields=False, crit=False, ad=False, ap=False, tank=True,  on_hit=False),
+    # New / updated items (patch 16.8.1)
+    "jak'sho":      dict(healing=False, shields=False, crit=False, ad=False, ap=False, tank=True,  on_hit=False),
+    "overlord":     dict(healing=True,  shields=False, crit=False, ad=True,  ap=False, tank=True,  on_hit=False),
+    "eclipse":      dict(healing=False, shields=True,  crit=False, ad=True,  ap=False, tank=False, on_hit=False),
+    "profane":      dict(healing=True,  shields=False, crit=False, ad=True,  ap=False, tank=False, on_hit=False),
+    "opportunity":  dict(healing=False, shields=False, crit=False, ad=True,  ap=False, tank=False, on_hit=False),
+    "voltaic":      dict(healing=False, shields=False, crit=False, ad=True,  ap=False, tank=False, on_hit=False),
+    "stridebreaker":dict(healing=False, shields=False, crit=False, ad=True,  ap=False, tank=False, on_hit=False),
+    "kaenic":       dict(healing=False, shields=False, crit=False, ad=False, ap=False, tank=True,  on_hit=False),
+    "hollow":       dict(healing=False, shields=False, crit=False, ad=False, ap=False, tank=True,  on_hit=False),
+    "cryptbloom":   dict(healing=False, shields=False, crit=False, ad=False, ap=True,  tank=False, on_hit=False),
+    "bloodletter":  dict(healing=False, shields=False, crit=False, ad=False, ap=True,  tank=False, on_hit=False),
+    "liandry":      dict(healing=False, shields=False, crit=False, ad=False, ap=True,  tank=False, on_hit=False),
+    "moonstone":    dict(healing=True,  shields=True,  crit=False, ad=False, ap=True,  tank=False, on_hit=False),
+    "echoes":       dict(healing=True,  shields=False, crit=False, ad=False, ap=True,  tank=False, on_hit=False),
+    "mandate":      dict(healing=False, shields=False, crit=False, ad=False, ap=True,  tank=False, on_hit=False),
 }
 
 def parse_enemy_items(raw: str) -> dict[str, list[str]]:

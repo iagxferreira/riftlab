@@ -237,7 +237,7 @@ def cmd_feedback(args):
     keystone_name = KEYSTONE_NAMES.get(keystone_id, "Unknown")
 
     # Infer mythic from items (first legendary support item found)
-    MYTHICS = {"Locket of the Iron Solari", "Shurelya's Battlesong", "Turbo Chemtank",
+    MYTHICS = {"Locket of the Iron Solari", "Shurelya's Battlesong",
                "Imperial Mandate", "Moonstone Renewer", "Echoes of Helia"}
     items = [p.get(f"item{i}") for i in range(7)]
     # We don't have item ID→name here without Data Dragon, so log keystone as primary action
