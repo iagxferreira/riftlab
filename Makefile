@@ -2,7 +2,7 @@ PYTHON := .venv/bin/python
 PIP    := .venv/bin/pip
 GAMES  ?= 20
 
-.PHONY: setup stats profile-main profile-lab last-main last-lab comp-last-main comp-last-lab comp-live-main comp-live-lab build-live-main build-live-lab pregame-main pregame-lab runes-main runes-lab exclude-main exclude-lab cache-list clean
+.PHONY: setup stats profile-main profile-lab last-main last-lab comp-last-main comp-last-lab comp-live-main comp-live-lab build-live-main build-live-lab pregame-main pregame-lab runes-main runes-lab exclude-main exclude-lab cache-list feedback-main feedback-lab rl-weights clean
 
 setup: .venv .env
 
@@ -67,6 +67,15 @@ exclude-lab: .venv
 
 cache-list: .venv
 	$(PYTHON) match_cache.py list
+
+feedback-main: .venv
+	$(PYTHON) rl_advisor.py feedback main
+
+feedback-lab: .venv
+	$(PYTHON) rl_advisor.py feedback lab
+
+rl-weights: .venv
+	$(PYTHON) rl_advisor.py weights
 
 clean:
 	rm -rf .venv __pycache__ *.pyc
