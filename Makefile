@@ -2,7 +2,7 @@ PYTHON := .venv/bin/python
 PIP    := .venv/bin/pip
 GAMES  ?= 20
 
-.PHONY: setup stats profile-main profile-lab last-main last-lab comp-last-main comp-last-lab comp-live-main comp-live-lab build-live-main build-live-lab pregame-main pregame-lab clean
+.PHONY: setup stats profile-main profile-lab last-main last-lab comp-last-main comp-last-lab comp-live-main comp-live-lab build-live-main build-live-lab pregame-main pregame-lab runes-main runes-lab exclude-main exclude-lab cache-list clean
 
 setup: .venv .env
 
@@ -52,6 +52,21 @@ pregame-main: .venv
 
 pregame-lab: .venv
 	$(PYTHON) pregame.py lab
+
+runes-main: .venv
+	$(PYTHON) runes.py main
+
+runes-lab: .venv
+	$(PYTHON) runes.py lab
+
+exclude-main: .venv
+	$(PYTHON) match_cache.py exclude main --note "$(NOTE)"
+
+exclude-lab: .venv
+	$(PYTHON) match_cache.py exclude lab --note "$(NOTE)"
+
+cache-list: .venv
+	$(PYTHON) match_cache.py list
 
 clean:
 	rm -rf .venv __pycache__ *.pyc

@@ -19,12 +19,14 @@ from rich.rule import Rule
 from rich import box
 
 from lol_stats import get_account, get_match_ids, get_match, extract_participant, BASE_SUMMONER, _get, ACCOUNTS
+from match_cache import get_match_cached, is_excluded
 from comp_check import (
     analyze_comp, generate_matchup_insights, recommend_build,
     build_context, champ_name_from_id, _load_champ_id_map,
     resolve, comp_table, print_insights, ACCOUNTS,
 )
 from build_advisor import fetch_live_data, aggregate_threats, get_adaptive_recommendations, print_enemy_read, print_recommendations
+from runes import build_rune_context, pick_rune_page, print_rune_page
 
 load_dotenv()
 console = Console()
@@ -35,11 +37,15 @@ console = Console()
 # ---------------------------------------------------------------------------
 
 def get_recent_form(puuid: str, n: int = 5) -> list[dict]:
-    match_ids = get_match_ids(puuid, count=n)
+    match_ids = get_match_ids(puuid, count=n + 5)  # fetch extras to cover exclusions
     rows = []
     for mid in match_ids:
+        if len(rows) >= n:
+            break
+        if is_excluded(mid):
+            continue
         try:
-            match = get_match(mid)
+            match = get_match_cached(mid)
             p = extract_participant(match, puuid)
             if not p: continue
             dur = match["info"]["gameDuration"] / 60
@@ -54,7 +60,6 @@ def get_recent_form(puuid: str, n: int = 5) -> list[dict]:
             })
         except Exception:
             pass
-        time.sleep(0.05)
     return rows
 
 
@@ -210,6 +215,84 @@ def generate_loading_tips(
     return tips
 
 
+# ---------------------------------------------------------------------------
+# Ban recommendations
+# ---------------------------------------------------------------------------
+
+# (champion, reason, threat_type)
+# threat_type: "rakan_counter" | "lane_bully" | "broken" | "snowball"
+RAKAN_COUNTERS = {
+    "Nautilus":  ("Hard-engages over your W, chains you into his team before you can act",         "rakan_counter"),
+    "Leona":     ("Burst CC at level 2 kills you before Xayah/Jinx can follow up",                 "rakan_counter"),
+    "Blitzcrank":("Hook pulls your ADC out of your W shield range instantly",                      "rakan_counter"),
+    "Lux":       ("E root interrupts mid-R, Q snare cancels your engage window",                   "rakan_counter"),
+    "Morgana":   ("Black Shield makes your W useless on the enemy ADC for 5 seconds",              "rakan_counter"),
+    "Mel":       ("Reflects your W damage back — punishes aggressive Rakan plays",                 "rakan_counter"),
+    "Zilean":    ("Double bomb + ult completely nullifies your all-in",                            "rakan_counter"),
+    "Janna":     ("Ult knocks your team away mid-engage every time",                               "rakan_counter"),
+    "Thresh":    ("Lantern gives ADC free escape from your R; hook punishes your engage timing",   "rakan_counter"),
+}
+
+LANE_BULLIES = {
+    "Caitlyn":   ("Outranges Jinx/Xayah, zone them under tower before you hit 6",                 "lane_bully"),
+    "Draven":    ("Kills your ADC at level 1 trade before you have items",                        "lane_bully"),
+    "Miss Fortune":("Bullet Time through your team before you can R out",                         "lane_bully"),
+}
+
+BROKEN_OR_SNOWBALL = {
+    "Zed":       ("If fed he one-shots your ADC before you can W — hard to protect against",      "snowball"),
+    "Katarina":  ("Resets through your R knockup — hard to CC long enough to kill her",           "snowball"),
+    "Shaco":     ("Level 2 invade kills Rakan instantly; boxes interrupt your R mid-cast",        "snowball"),
+    "Twitch":    ("Invisible ADC with stealth resets — your W can't save what you can't see",     "snowball"),
+    "Vayne":     ("True damage shreds your frontline late; invisible E makes her hard to peel off","snowball"),
+}
+
+ALL_BAN_REASONS = {**RAKAN_COUNTERS, **LANE_BULLIES, **BROKEN_OR_SNOWBALL}
+
+
+def recommend_bans(my_champ: str, recent_form: list[dict]) -> list[tuple[str, str, str]]:
+    """Return top 3 ban suggestions as (champion, reason, type)."""
+    bans = []
+
+    # Always prioritize direct Rakan counters
+    for champ, (reason, typ) in RAKAN_COUNTERS.items():
+        bans.append((champ, reason, typ))
+
+    # Add snowball/broken picks
+    for champ, (reason, typ) in BROKEN_OR_SNOWBALL.items():
+        bans.append((champ, reason, typ))
+
+    for champ, (reason, typ) in LANE_BULLIES.items():
+        bans.append((champ, reason, typ))
+
+    # Prioritize: Morgana and Nautilus first (hardest counters),
+    # then Mel (user's current ban), then situational
+    priority = ["Nautilus", "Morgana", "Mel", "Blitzcrank", "Shaco", "Zed", "Leona", "Lux"]
+    ordered = sorted(bans, key=lambda x: priority.index(x[0]) if x[0] in priority else 99)
+
+    return ordered[:5]
+
+
+def print_bans(bans: list[tuple[str, str, str]]):
+    TYPE_COLOR = {
+        "rakan_counter": "[red]Rakan counter[/red]",
+        "lane_bully":    "[yellow]Lane bully[/yellow]",
+        "snowball":      "[magenta]Snowball threat[/magenta]",
+    }
+
+    t = Table(title="Ban Recommendations", box=box.ROUNDED)
+    t.add_column("Priority", justify="center")
+    t.add_column("Champion",  style="cyan", min_width=14)
+    t.add_column("Type",      min_width=16)
+    t.add_column("Why ban")
+
+    for i, (champ, reason, typ) in enumerate(bans, 1):
+        priority = "[bold red]MUST BAN[/bold red]" if i == 1 else f"#{i}"
+        t.add_row(priority, champ, TYPE_COLOR.get(typ, typ), reason)
+
+    console.print(t)
+
+
 def print_loading_tips(tips: list[tuple[str, str]]):
     ICONS = {"good": "[green]✓[/green]", "warn": "[yellow]![/yellow]", "info": "[blue]→[/blue]"}
     lines = [f"{ICONS.get(lvl, '·')}  {msg}" for lvl, msg in tips]
@@ -264,6 +347,10 @@ def main():
     threats["names_with_shields"] = []
 
     # Print sections
+    console.print(Rule("[bold]Ban Recommendations[/bold]"))
+    bans = recommend_bans(my_champ, recent_form)
+    print_bans(bans)
+
     console.print(Rule("[bold]Recent Form[/bold]"))
     print_recent_form(recent_form)
 
@@ -277,6 +364,12 @@ def main():
     console.print(Rule("[bold]Build[/bold]"))
     recommendations = get_adaptive_recommendations(my_champ, threats, {})
     print_recommendations(my_champ, recommendations)
+
+    console.print(Rule("[bold]Runes[/bold]"))
+    rune_ctx  = build_rune_context(ally_comp, enemy_comp)
+    rune_page = pick_rune_page(my_champ, rune_ctx)
+    if rune_page:
+        print_rune_page(rune_page, my_champ)
 
     console.print(Rule("[bold]Game Plan[/bold]"))
     tips = generate_loading_tips(my_champ, ally_comp, enemy_comp, threats, recent_form)

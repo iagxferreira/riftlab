@@ -157,6 +157,21 @@ CHAMPS: dict[str, dict] = {
     "Kayn":        dict(cls="assassin", dmg="mixed",    hard_cc=False, soft_cc=False, mobility="high", scale="mid",  range="melee",  win_con="pick"),
     "Yasuo":       dict(cls="fighter",  dmg="physical", hard_cc=True,  soft_cc=False, mobility="high", scale="mid",  range="melee",  win_con="teamfight"),
     "Yone":        dict(cls="fighter",  dmg="mixed",    hard_cc=True,  soft_cc=False, mobility="high", scale="mid",  range="melee",  win_con="teamfight"),
+    "ChoGath":     dict(cls="tank",     dmg="magic",    hard_cc=True,  soft_cc=False, mobility="low",  scale="late", range="melee",  win_con="engage"),
+    "Cho'Gath":    dict(cls="tank",     dmg="magic",    hard_cc=True,  soft_cc=False, mobility="low",  scale="late", range="melee",  win_con="engage"),
+    "LeeSin":      dict(cls="fighter",  dmg="physical", hard_cc=True,  soft_cc=False, mobility="high", scale="early", range="melee", win_con="pick"),
+    "Lee Sin":     dict(cls="fighter",  dmg="physical", hard_cc=True,  soft_cc=False, mobility="high", scale="early", range="melee", win_con="pick"),
+    "Yuumi":       dict(cls="support_peel", dmg="magic", hard_cc=True, soft_cc=True,  mobility="high", scale="late", range="ranged", win_con="peel"),
+    "Wukong":      dict(cls="fighter",  dmg="physical", hard_cc=True,  soft_cc=False, mobility="high", scale="mid",  range="melee",  win_con="engage"),
+    "Xin Zhao":    dict(cls="fighter",  dmg="physical", hard_cc=True,  soft_cc=False, mobility="high", scale="early", range="melee", win_con="engage"),
+    "XinZhao":     dict(cls="fighter",  dmg="physical", hard_cc=True,  soft_cc=False, mobility="high", scale="early", range="melee", win_con="engage"),
+    "Pantheon":    dict(cls="fighter",  dmg="physical", hard_cc=True,  soft_cc=False, mobility="high", scale="early", range="melee", win_con="pick"),
+    "Elise":       dict(cls="assassin", dmg="magic",    hard_cc=True,  soft_cc=False, mobility="high", scale="early", range="ranged", win_con="pick"),
+    "Nidalee":     dict(cls="assassin", dmg="magic",    hard_cc=False, soft_cc=False, mobility="high", scale="mid",  range="ranged", win_con="pick"),
+    "Kindred":     dict(cls="marksman", dmg="physical", hard_cc=False, soft_cc=True,  mobility="high", scale="mid",  range="ranged", win_con="pick"),
+    "Fiddlesticks":dict(cls="mage",     dmg="magic",    hard_cc=True,  soft_cc=False, mobility="low",  scale="mid",  range="ranged", win_con="teamfight"),
+    "Gragas":      dict(cls="tank",     dmg="magic",    hard_cc=True,  soft_cc=False, mobility="high", scale="mid",  range="melee",  win_con="engage"),
+    "Mel":         dict(cls="mage",     dmg="magic",    hard_cc=True,  soft_cc=False, mobility="low",  scale="mid",  range="ranged", win_con="pick"),
 }
 
 # ---------------------------------------------------------------------------

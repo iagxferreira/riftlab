@@ -18,6 +18,7 @@ from lol_stats import (
     get_account, get_match_ids, get_match, extract_participant,
     BASE_ACCOUNT, _get, ACCOUNTS, console,
 )
+from match_cache import get_match_cached, is_excluded
 
 load_dotenv()
 
@@ -374,13 +375,16 @@ def main():
     acct = get_account(game_name, tag)
     puuid = acct["puuid"]
 
-    match_ids = get_match_ids(puuid, count=1)
+    match_ids = get_match_ids(puuid, count=10)
     if not match_ids:
         console.print("[red]No ranked games found.[/red]")
         return
 
-    mid = match_ids[0]
-    match = get_match(mid)
+    mid = next((m for m in match_ids if not is_excluded(m)), None)
+    if not mid:
+        console.print("[red]All recent games are excluded.[/red]")
+        return
+    match = get_match_cached(mid)
     p = extract_participant(match, puuid)
     if not p:
         console.print("[red]Could not find your data in the match.[/red]")
