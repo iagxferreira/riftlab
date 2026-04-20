@@ -27,6 +27,10 @@ make profile-lab
 
 # Analyze more games (default is 20)
 make profile-main GAMES=40
+
+# Deep review of your last ranked game + improvement notes
+make last-main
+make last-lab
 ```
 
 ## Manual commands

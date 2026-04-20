@@ -2,7 +2,7 @@ PYTHON := .venv/bin/python
 PIP    := .venv/bin/pip
 GAMES  ?= 20
 
-.PHONY: setup stats profile-main profile-lab clean
+.PHONY: setup stats profile-main profile-lab last-main last-lab clean
 
 setup: .venv .env
 
@@ -22,6 +22,12 @@ profile-main: .venv
 
 profile-lab: .venv
 	$(PYTHON) playstyle.py lab --games $(GAMES)
+
+last-main: .venv
+	$(PYTHON) last_match.py main
+
+last-lab: .venv
+	$(PYTHON) last_match.py lab
 
 clean:
 	rm -rf .venv __pycache__ *.pyc
