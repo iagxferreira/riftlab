@@ -2,7 +2,7 @@ PYTHON := .venv/bin/python
 PIP    := .venv/bin/pip
 GAMES  ?= 20
 
-.PHONY: setup stats profile-main profile-lab last-main last-lab clean
+.PHONY: setup stats profile-main profile-lab last-main last-lab comp-last-main comp-last-lab comp-live-main comp-live-lab build-live-main build-live-lab clean
 
 setup: .venv .env
 
@@ -28,6 +28,24 @@ last-main: .venv
 
 last-lab: .venv
 	$(PYTHON) last_match.py lab
+
+comp-last-main: .venv
+	$(PYTHON) comp_check.py --from-last main
+
+comp-last-lab: .venv
+	$(PYTHON) comp_check.py --from-last lab
+
+comp-live-main: .venv
+	$(PYTHON) comp_check.py --live main
+
+comp-live-lab: .venv
+	$(PYTHON) comp_check.py --live lab
+
+build-live-main: .venv
+	$(PYTHON) build_advisor.py --live main
+
+build-live-lab: .venv
+	$(PYTHON) build_advisor.py --live lab
 
 clean:
 	rm -rf .venv __pycache__ *.pyc
