@@ -11,6 +11,12 @@
         "score": 0.1986,
         "n": 1
       }
+    },
+    "has_assassin": {
+      "keystone:Guardian": {
+        "score": -0.1921,
+        "n": 1
+      }
     }
   }
 }
