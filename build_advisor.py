@@ -99,6 +99,8 @@ ITEM_THREATS: dict[str, dict] = {
     "phantom dancer":dict(healing=False,shields=True,  crit=True,  ad=True,  ap=False, tank=False, on_hit=False),
     "bt":           dict(healing=True,  shields=True,  crit=True,  ad=True,  ap=False, tank=False, on_hit=False),
     "yun tal":      dict(healing=False, shields=False, crit=True,  ad=True,  ap=False, tank=False, on_hit=False),
+    # Dual resist
+    "bandlepipes":  dict(healing=False, shields=False, crit=False, ad=False, ap=False, tank=True,  on_hit=False),
     # Tank
     "sunfire":      dict(healing=False, shields=False, crit=False, ad=False, ap=False, tank=True,  on_hit=False),
     "heartsteel":   dict(healing=False, shields=False, crit=False, ad=False, ap=False, tank=True,  on_hit=False),
@@ -224,6 +226,11 @@ ADAPTIVE_ITEMS = [
     dict(name="Thornmail", slot="flex", cost=2700,
          condition=lambda t, champ: t["healing"] >= 2 and t["total_ad"] >= 2,
          reason="Applies GW on being hit + reflects damage — doubles as anti-heal and armor"),
+
+    # Dual resist
+    dict(name="Bandlepipes",               slot="flex",    cost=2300,
+         condition=lambda t, champ: t["total_ap"] >= 2 and t["total_ad"] >= 2,
+         reason="200 HP + 20 Armor + 20 MR + Haste — best value when enemy has both magic and physical damage"),
 
     # Rakan-specific
     dict(name="Locket of the Iron Solari", slot="mythic", cost=2500,
