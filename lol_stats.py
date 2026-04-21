@@ -90,19 +90,25 @@ def format_rank(entries: list[dict]) -> str:
 # Match history
 # ---------------------------------------------------------------------------
 
-def get_match_ids(puuid: str, count: int = 20, queue: int = 420) -> list[str]:
-    """queue 420 = Solo/Duo ranked. Paginates automatically for count > 100."""
+def get_match_ids(puuid: str, count: int = 20, queue: int = 420,
+                  start_time: int = None, end_time: int = None) -> list[str]:
+    """queue 420 = Solo/Duo ranked. Paginates automatically.
+    count=0 fetches ALL available games (slow). start_time/end_time are epoch seconds."""
     url = f"{BASE_ACCOUNT}/lol/match/v5/matches/by-puuid/{puuid}/ids"
-    if count <= 100:
-        return _get(url, {"queue": queue, "count": count})
+    fetch_all = (count == 0)
     ids = []
     start = 0
-    while len(ids) < count:
-        batch = _get(url, {"queue": queue, "count": min(100, count - len(ids)), "start": start})
+    while True:
+        params = {"queue": queue, "count": 100 if fetch_all else min(100, count - len(ids)), "start": start}
+        if start_time: params["startTime"] = start_time
+        if end_time:   params["endTime"]   = end_time
+        batch = _get(url, params)
         if not batch:
             break
         ids.extend(batch)
         if len(batch) < 100:
+            break
+        if not fetch_all and len(ids) >= count:
             break
         start += len(batch)
         time.sleep(0.05)
