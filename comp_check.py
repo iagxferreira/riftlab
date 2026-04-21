@@ -172,6 +172,7 @@ CHAMPS: dict[str, dict] = {
     "Fiddlesticks":dict(cls="mage",     dmg="magic",    hard_cc=True,  soft_cc=False, mobility="low",  scale="mid",  range="ranged", win_con="teamfight"),
     "Gragas":      dict(cls="tank",     dmg="magic",    hard_cc=True,  soft_cc=False, mobility="high", scale="mid",  range="melee",  win_con="engage"),
     "Mel":         dict(cls="mage",     dmg="magic",    hard_cc=True,  soft_cc=False, mobility="low",  scale="mid",  range="ranged", win_con="pick"),
+    "Milio":       dict(cls="support_peel", dmg="magic", hard_cc=False, soft_cc=True, mobility="low",  scale="mid",  range="ranged", win_con="peel"),
 }
 
 # ---------------------------------------------------------------------------
@@ -430,6 +431,56 @@ BUILD_DB: dict[str, list[dict]] = {
                  anti=[]),
         ],
     },
+    "Milio": {
+        "mythic": [
+            dict(name="Moonstone Renewer",     cost=2200,
+                 why="Sustained healing on your ADC in extended fights — best when protecting a scaling carry",
+                 conditions=["ally_peel_adc"],
+                 anti=[]),
+            dict(name="Echoes of Helia",       cost=2200,
+                 why="Healing on every shield/heal you cast — synergizes with your whole kit",
+                 conditions=["always"],
+                 anti=["ally_peel_adc"]),
+            dict(name="Shurelya's Battlesong", cost=2500,
+                 why="Speed burst to disengage or help your team chase after Milio R cleanse",
+                 conditions=["ally_fighting_adc"],
+                 anti=[]),
+        ],
+        "boots": [
+            dict(name="Mercury's Treads",         cost=1100,
+                 why="Tenacity means you survive long enough to R cleanse your team",
+                 conditions=["enemy_cc_gte_3"],
+                 anti=[]),
+            dict(name="Ionian Boots of Lucidity", cost=950,
+                 why="Lower cooldowns = more shields, more heals, more R casts",
+                 conditions=["always"],
+                 anti=[]),
+        ],
+        "support": [
+            dict(name="Ardent Censer",         cost=2200,
+                 why="Boosts your ADC's attack speed and on-hit healing after you shield them",
+                 conditions=["ally_marksman"],
+                 anti=[]),
+            dict(name="Staff of Flowing Water", cost=2250,
+                 why="AP and haste for your whole team when you heal — amplifies Swain/Yasuo/anyone with AP",
+                 conditions=["ally_ap_carry"],
+                 anti=[]),
+            dict(name="Redemption",            cost=2300,
+                 why="Use it while dead or from range — strong in extended teamfights",
+                 conditions=["always"],
+                 anti=[]),
+            dict(name="Mikael's Blessing",     cost=2300,
+                 why="Cleanse hard CC off your ADC — pairs with your R for double cleanse",
+                 conditions=["enemy_single_hard_cc_support"],
+                 anti=[]),
+        ],
+        "flex": [
+            dict(name="Vigilant Wardstone",    cost=1100,
+                 why="Vision scaling — late game ward limit upgrade",
+                 conditions=["always"],
+                 anti=[]),
+        ],
+    },
     "default_support_engage": {
         "mythic": [
             dict(name="Locket of the Iron Solari", cost=2500,
@@ -653,7 +704,7 @@ def comp_table(title: str, comp: dict, border_color: str) -> str:
 
     from rich.console import Group
     from rich.text import Text
-    return Panel(Group(t, Text(summary)), title=f"[bold]{title}[/bold]", border_style=border_color)
+    return Panel(Group(t, Text.from_markup(summary)), title=f"[bold]{title}[/bold]", border_style=border_color)
 
 
 def print_insights(insights: list[tuple[str, str]]):
