@@ -16,12 +16,44 @@ from rich.panel import Panel
 from rich.columns import Columns
 from rich import box
 
+import requests
+
 from lol_stats import (
     get_account, get_match_ids, get_match, extract_participant,
-    ACCOUNTS, console,
+    ACCOUNTS, BASE_SUMMONER, _get, console,
 )
 
 load_dotenv()
+
+# ---------------------------------------------------------------------------
+# Mastery fetching
+# ---------------------------------------------------------------------------
+
+def fetch_masteries(puuid: str, top_n: int = 20) -> list[dict]:
+    """Return top N champion masteries with name resolved via Data Dragon."""
+    try:
+        data = _get(f"{BASE_SUMMONER}/lol/champion-mastery/v4/champion-masteries/by-puuid/{puuid}/top?count={top_n}")
+    except Exception:
+        return []
+
+    # Resolve champion IDs via Data Dragon
+    try:
+        ver   = requests.get("https://ddragon.leagueoflegends.com/api/versions.json", timeout=5).json()[0]
+        champs = requests.get(f"https://ddragon.leagueoflegends.com/cdn/{ver}/data/en_US/champion.json", timeout=5).json()
+        id_to_name = {int(v["key"]): k for k, v in champs["data"].items()}
+    except Exception:
+        id_to_name = {}
+
+    result = []
+    for m in data:
+        result.append({
+            "champion": id_to_name.get(m["championId"], str(m["championId"])),
+            "points":   m["championPoints"],
+            "level":    m["championLevel"],
+            "chest":    m.get("chestGranted", False),
+        })
+    return result
+
 
 # ---------------------------------------------------------------------------
 # Richer match extraction
@@ -239,15 +271,41 @@ CHAMP_DB: list[tuple[str, list[str], str, int]] = [
      "Black Shield counters hard engage; root+ult creates easy kill setups", 1),
     ("Seraphine",    ["ability-damage", "support", "utility", "cc-heavy"],
      "AoE CC chain with heal/shield; scales to teamfight win conditions", 2),
+    # Carry / fighter entries for mastery-boosted suggestions
+    ("Ezreal",       ["ability-damage", "adc", "carry", "farm-dependent"],
+     "Safe poke ADC with high skill ceiling; Iceborn Gauntlet or Trinity into crit is strong this patch", 2),
+    ("Riven",        ["auto-attack", "top-laner", "carry", "aggressive", "high-risk"],
+     "Eclipse → Sterak's snowballs hard; high mastery = free LP if you know the combos", 3),
+    ("Khazix",       ["ability-damage", "jungler", "carry", "aggressive", "high-risk"],
+     "One-shots isolated targets; evolve Q first, snowballs out of control from early kills", 2),
+    ("LeeSin",       ["auto-attack", "jungler", "carry", "aggressive", "playmaker"],
+     "Early game king; high mastery is mandatory but you clearly have it — insec plays = free wins", 3),
+    ("Vayne",        ["auto-attack", "adc", "carry", "high-risk"],
+     "Late game hypercarry with true damage; Guardian Angel + Kraken shreds any frontline", 3),
+    ("Fiora",        ["auto-attack", "top-laner", "carry", "aggressive"],
+     "Splitpush carry with true damage; true damage on vitals counters any tank comp", 3),
+    ("Karthus",      ["ability-damage", "jungler", "carry", "farm-dependent"],
+     "Passive farm jungler with global ult pressure; Shadowflame + Rabadon's one-shots after items", 1),
+    ("Morgana",      ["ability-damage", "mid-laner", "support", "cc-heavy"],
+     "Black Shield counters engage; Q root + ult creates easy kill setups in mid or support", 1),
 ]
 
 
-def suggest_champions(tags: list[str], role: str, top_n: int = 6) -> list[tuple]:
+def suggest_champions(tags: list[str], role: str, masteries: list[dict], top_n: int = 6) -> list[tuple]:
+    mastery_pts = {m["champion"]: m["points"] for m in masteries}
+    max_pts = max(mastery_pts.values(), default=1)
+
     scored = []
     for champ, champ_tags, reason, diff in CHAMP_DB:
-        score = sum(1 for t in tags if t in champ_tags)
-        if score > 0:
-            scored.append((score, champ, reason, diff))
+        tag_score  = sum(1 for t in tags if t in champ_tags)
+        if tag_score == 0:
+            continue
+        # Mastery bonus: up to +2 for highly mastered champs
+        pts        = mastery_pts.get(champ, 0)
+        mas_bonus  = round((pts / max_pts) * 2, 2)
+        total      = tag_score + mas_bonus
+        scored.append((total, tag_score, mas_bonus, champ, reason, diff))
+
     scored.sort(key=lambda x: -x[0])
     return scored[:top_n]
 
@@ -374,6 +432,27 @@ ROLE_EMOJI = {
 DIFF_LABEL = {1: "[green]Easy[/green]", 2: "[yellow]Medium[/yellow]", 3: "[red]Hard[/red]"}
 
 
+def print_masteries(masteries: list[dict]):
+    if not masteries:
+        return
+    t = Table(title="Champion Mastery (Top 10)", box=box.SIMPLE, show_header=True)
+    t.add_column("Champion",  style="cyan", min_width=16)
+    t.add_column("Level",     justify="center")
+    t.add_column("Points",    justify="right")
+    t.add_column("Chest",     justify="center")
+
+    for m in masteries[:10]:
+        pts_color = "green" if m["points"] >= 100_000 else ("yellow" if m["points"] >= 50_000 else "white")
+        chest_str = "[green]✓[/green]" if m["chest"] else "[dim]—[/dim]"
+        t.add_row(
+            m["champion"],
+            str(m["level"]),
+            f"[{pts_color}]{m['points']:,}[/{pts_color}]",
+            chest_str,
+        )
+    console.print(t)
+
+
 def print_profile(account_label: str, p: dict, tags: list[str]):
     role_str = ROLE_EMOJI.get(p["primary_role"], p["primary_role"])
     role_dist = "  ".join(f"{ROLE_EMOJI.get(r, r)}: {n}" for r, n in p["role_dist"].items())
@@ -402,14 +481,21 @@ def print_profile(account_label: str, p: dict, tags: list[str]):
 
 def print_suggestions(suggestions: list[tuple]):
     table = Table(title="Champion Suggestions", box=box.ROUNDED, show_lines=True)
-    table.add_column("Champion", style="cyan", min_width=14)
-    table.add_column("Match", justify="center")
+    table.add_column("Champion",   style="cyan", min_width=14)
+    table.add_column("Match",      justify="center")
+    table.add_column("Mastery",    justify="right")
     table.add_column("Difficulty", justify="center")
-    table.add_column("Why you'd like it", max_width=60)
+    table.add_column("Why you'd like it", max_width=55)
 
-    for score, champ, reason, diff in suggestions:
-        stars = "★" * score + "☆" * (4 - score)
-        table.add_row(champ, f"[yellow]{stars}[/yellow]", DIFF_LABEL[diff], reason)
+    for total, tag_score, mas_bonus, champ, reason, diff in suggestions:
+        stars     = "★" * min(4, tag_score) + "☆" * max(0, 4 - tag_score)
+        if mas_bonus >= 1.5:
+            mas_str = f"[green]{mas_bonus:+.1f} (high)[/green]"
+        elif mas_bonus >= 0.5:
+            mas_str = f"[yellow]{mas_bonus:+.1f}[/yellow]"
+        else:
+            mas_str = f"[dim]{mas_bonus:+.1f}[/dim]"
+        table.add_row(champ, f"[yellow]{stars}[/yellow]", mas_str, DIFF_LABEL[diff], reason)
 
     console.print(table)
 
@@ -424,18 +510,26 @@ def main():
     parser.add_argument("--games", type=int, default=30, help="Number of games to analyze")
     args = parser.parse_args()
 
+    account_str = ACCOUNTS[args.account]
+    game_name, tag = account_str.rsplit("#", 1)
+    acct  = get_account(game_name, tag)
+    puuid = acct["puuid"]
+
+    console.print(f"\n[bold]Fetching masteries for [cyan]{account_str}[/cyan]...[/bold]")
+    masteries = fetch_masteries(puuid, top_n=20)
+
     rows = fetch_profile_data(args.account, n_games=args.games)
     if not rows:
         console.print("[red]No data.[/red]")
         return
 
-    profile = compute_profile(rows)
-    tags = classify_playstyle(profile)
-    suggestions = suggest_champions(tags, profile["primary_role"])
-
-    insights = generate_insights(profile, tags)
+    profile     = compute_profile(rows)
+    tags        = classify_playstyle(profile)
+    suggestions = suggest_champions(tags, profile["primary_role"], masteries)
+    insights    = generate_insights(profile, tags)
 
     print_profile(args.account, profile, tags)
+    print_masteries(masteries)
     print_insights(insights)
     print_suggestions(suggestions)
 
