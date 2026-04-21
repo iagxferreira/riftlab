@@ -206,9 +206,12 @@ def aggregate_threats(
 # (item, slot, cost, condition_fn, reason)
 ADAPTIVE_ITEMS = [
     # Grievous Wounds
-    dict(name="Chemtech Putrifier", slot="support", cost=2300,
-         condition=lambda t, champ: t["healing"] >= 2 and champ.lower() == "rakan",
-         reason="Applies 40% GW through your shields — best GW item for enchanter/engage supports"),
+    dict(name="Thornmail", slot="flex", cost=2700,
+         condition=lambda t, champ: t["healing"] >= 2 and champ.lower() == "rakan" and t["total_ad"] >= 2,
+         reason="Applies GW on being hit — best GW option for Rakan vs healing + AD heavy comps"),
+    dict(name="Oblivion Orb → Morellonomicon", slot="flex", cost=1000,
+         condition=lambda t, champ: t["healing"] >= 2 and champ.lower() == "rakan" and t["total_ad"] < 2,
+         reason="Cheap GW — buy before 3rd item when enemy heals but isn't AD heavy"),
     dict(name="Oblivion Orb → Morellonomicon", slot="flex", cost=1000,
          condition=lambda t, champ: t["healing"] >= 2 and champ.lower() != "rakan",
          reason="Cheap GW component — buy this before completing your 3rd item if enemy heals a lot"),
@@ -239,9 +242,6 @@ ADAPTIVE_ITEMS = [
     dict(name="Frozen Heart", slot="flex", cost=2500,
          condition=lambda t, champ: t["on_hit"] >= 2,
          reason="Reduces attack speed of nearby enemies — counters on-hit and attack-speed heavy comps"),
-    dict(name="Thornmail", slot="flex", cost=2700,
-         condition=lambda t, champ: t["healing"] >= 2 and t["total_ad"] >= 2,
-         reason="Applies GW on being hit + reflects damage — doubles as anti-heal and armor"),
 
     # Dual resist
     dict(name="Bandlepipes",               slot="flex",    cost=2300,
