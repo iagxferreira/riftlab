@@ -27,6 +27,7 @@ from comp_check import (
 )
 from build_advisor import fetch_live_data, aggregate_threats, get_adaptive_recommendations, print_enemy_read, print_recommendations
 from runes import build_rune_context, pick_rune_page, print_rune_page
+from champ_select import print_champion_pick
 
 load_dotenv()
 console = Console()
@@ -61,6 +62,67 @@ def get_recent_form(puuid: str, n: int = 5) -> list[dict]:
         except Exception:
             pass
     return rows
+
+
+def check_tilt(rows: list[dict]) -> tuple[str, str] | None:
+    """
+    Returns (level, message) if tilt detected, else None.
+    Levels: "stop" (red), "warn" (yellow)
+    """
+    if len(rows) < 3:
+        return None
+
+    recent3 = rows[:3]
+    recent5 = rows[:5]
+
+    wins3  = sum(1 for r in recent3 if r["win"])
+    wins5  = sum(1 for r in recent5 if r["win"])
+    wr5    = wins5 / len(recent5)
+    avg_d3 = sum(r["deaths"] for r in recent3) / len(recent3)
+    avg_d5 = sum(r["deaths"] for r in recent5) / len(recent5) if recent5 else 0
+
+    # Hard stop: 3 losses in a row with bad stats
+    if wins3 == 0 and avg_d3 > 8:
+        return ("stop",
+            "3 losses in a row with high deaths. You're tilting — stop for today. "
+            "Playing more will make it worse, not better.")
+
+    # Hard stop: 0 wins in last 3
+    if wins3 == 0:
+        return ("stop",
+            "0 wins in your last 3 games. Take a break before this game — "
+            "come back when you're fresh.")
+
+    # Warning: downward trend
+    if wr5 < 0.30 and avg_d5 > 9:
+        return ("warn",
+            f"WR is {wr5*100:.0f}% with {avg_d5:.1f} avg deaths over last 5 games. "
+            "You're in a rough patch — play one more, but stop if you lose.")
+
+    # Warning: deaths spiking
+    if len(rows) >= 2 and avg_d3 > avg_d5 * 1.4 and avg_d3 > 10:
+        return ("warn",
+            f"Deaths trending up — {avg_d3:.1f}/game in last 3 vs {avg_d5:.1f} overall. "
+            "Focus on surviving this game, not making plays.")
+
+    return None
+
+
+def print_tilt_check(rows: list[dict]):
+    result = check_tilt(rows)
+    if not result:
+        return
+    level, msg = result
+    if level == "stop":
+        console.print(Panel(
+            f"[bold red]⛔  STOP QUEUING[/bold red]\n\n  {msg}",
+            border_style="red", padding=(1, 2)
+        ))
+    else:
+        console.print(Panel(
+            f"[bold yellow]⚠  TILT WARNING[/bold yellow]\n\n  {msg}",
+            border_style="yellow", padding=(1, 2)
+        ))
 
 
 def print_recent_form(rows: list[dict]):
@@ -178,8 +240,7 @@ def generate_loading_tips(
     # --- GW reminder ---
     if threats.get("healing", 0) >= 2:
         tips.append(("warn",
-            "Enemy has healing — buy [bold]Chemtech Putrifier[/bold] before your 3rd item. "
-            "Applies GW through your shields automatically."))
+            "Enemy has healing — buy [bold]Thornmail[/bold] (vs AD heavy) or [bold]Morellonomicon[/bold] (vs AP heavy) before your 3rd item."))
 
     # --- Rakan-specific mental checklist ---
     if my_champ.lower() == "rakan":
@@ -347,12 +408,17 @@ def main():
     threats["names_with_shields"] = []
 
     # Print sections
+    console.print(Rule("[bold]Champion Pick[/bold]"))
+    rune_ctx_pre = build_rune_context(ally_comp, enemy_comp)
+    print_champion_pick(ally_comp, enemy_comp, rune_ctx_pre)
+
     console.print(Rule("[bold]Ban Recommendations[/bold]"))
     bans = recommend_bans(my_champ, recent_form)
     print_bans(bans)
 
     console.print(Rule("[bold]Recent Form[/bold]"))
     print_recent_form(recent_form)
+    print_tilt_check(recent_form)
 
     console.print(Rule("[bold]Comp Overview[/bold]"))
     console.print(comp_table("Your Team",  ally_comp,  "green"))

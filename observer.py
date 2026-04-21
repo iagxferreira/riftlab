@@ -29,6 +29,7 @@ from pregame import (
     generate_loading_tips, print_loading_tips,
     print_bans, recommend_bans,
 )
+from champ_select import print_champion_pick
 from runes import build_rune_context, pick_rune_page, print_rune_page
 
 load_dotenv()
@@ -272,6 +273,10 @@ def main():
     recent_form = get_recent_form(puuid, n=5)
 
     # Print pregame sections
+    console.print(Rule("[bold]Champion Pick[/bold]"))
+    rune_ctx_pre = build_rune_context(ally_comp, enemy_comp)
+    print_champion_pick(ally_comp, enemy_comp, rune_ctx_pre)
+
     console.print(Rule("[bold]Ban Recommendations[/bold]"))
     print_bans(recommend_bans(my_champ, recent_form))
 

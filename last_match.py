@@ -19,6 +19,7 @@ from lol_stats import (
     BASE_ACCOUNT, _get, ACCOUNTS, console,
 )
 from match_cache import get_match_cached, is_excluded
+from pregame import get_recent_form, print_tilt_check
 
 load_dotenv()
 
@@ -408,6 +409,10 @@ def main():
     print_scoreboard(match, puuid)
     feedback = generate_feedback(p, death_timings, baseline, duration_m)
     print_feedback(feedback)
+
+    # Tilt check after the review
+    recent_form = get_recent_form(puuid, n=5)
+    print_tilt_check(recent_form)
 
 
 if __name__ == "__main__":

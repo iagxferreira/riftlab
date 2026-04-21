@@ -207,7 +207,85 @@ RUNE_PAGES: dict[str, list[dict]] = {
                 "shards":   "Double AH for more W pokes, Armor to trade in lane",
             }
         ),
-    ]
+    ],
+
+    "Milio": [
+        dict(
+            name="Summon Aery (Standard)",
+            scenario="Default — poke in lane, shield/heal empowers Aery proc",
+            conditions=["always"],
+            anti=[],
+            primary="Sorcery",
+            keystone=8214,    # Summon Aery
+            row1=8226,        # Manaflow Band
+            row2=8234,        # Celerity
+            row3=8237,        # Scorch
+            secondary="Resolve",
+            sec1=8463,        # Font of Life
+            sec2=8453,        # Revitalize
+            shards=["AH", "AH", "Armor"],
+            why={
+                "keystone": "Summon Aery — procs on every shield and heal, pokes with E and W, adds constant pressure",
+                "row1":     "Manaflow Band — restores mana when you poke, keeps you from going oom",
+                "row2":     "Celerity — extra speed means better positioning to W your ADC",
+                "row3":     "Scorch — burn on your Q chip damage, punishes enemies who walk up",
+                "secondary":"Resolve for sustain and healing amplification",
+                "sec1":     "Font of Life — marks enemies you slow (Q), heals your ADC when they attack them",
+                "sec2":     "Revitalize — amplifies all your heals and shields including R",
+                "shards":   "Double AH for more W/E/R casts, Armor for laning phase",
+            }
+        ),
+        dict(
+            name="Guardian (Peel Focus)",
+            scenario="Enemy has assassins or heavy dive — protect ADC at all costs",
+            conditions=["has_assassin"],
+            anti=[],
+            primary="Resolve",
+            keystone=8465,    # Guardian
+            row1=8463,        # Font of Life
+            row2=8473,        # Bone Plating
+            row3=8453,        # Revitalize
+            secondary="Inspiration",
+            sec1=8345,        # Biscuit Delivery
+            sec2=8347,        # Cosmic Insight
+            shards=["AH", "AH", "Armor"],
+            why={
+                "keystone": "Guardian — shared shield when near your ADC, blocks the assassin's burst window",
+                "row1":     "Font of Life — passive healing on your ADC when you slow enemies with Q",
+                "row2":     "Bone Plating — reduces burst on you or your ADC from the first hits",
+                "row3":     "Revitalize — amplifies Guardian shield and all heals/shields",
+                "secondary":"Inspiration for extra sustain and CDR",
+                "sec1":     "Biscuit Delivery — sustain through poke lanes that assassins run behind",
+                "sec2":     "Cosmic Insight — lower summoner spell CD, more Flash saves",
+                "shards":   "Double AH for more shield/heal casts, Armor for laning phase",
+            }
+        ),
+        dict(
+            name="Aery + Sorcery (Enchanter Full)",
+            scenario="Team has AP carry (Swain, Kassadin, Viktor) — Staff of Flowing Water synergy",
+            conditions=["ally_ap_carry"],
+            anti=["has_assassin"],
+            primary="Sorcery",
+            keystone=8214,    # Summon Aery
+            row1=8226,        # Manaflow Band
+            row2=8234,        # Celerity
+            row3=8236,        # Gathering Storm
+            secondary="Resolve",
+            sec1=8463,        # Font of Life
+            sec2=8453,        # Revitalize
+            shards=["AH", "AP", "Armor"],
+            why={
+                "keystone": "Summon Aery — constant shields/heals proc it, scales with AP from Gathering Storm",
+                "row1":     "Manaflow Band — mana sustain for long enchanter games",
+                "row2":     "Celerity — movement speed for positioning around your AP carry",
+                "row3":     "Gathering Storm — AP scales your heals/shields late, Staff of Flowing Water value goes up",
+                "secondary":"Resolve for healing amplification",
+                "sec1":     "Font of Life — heals AP carry passively when you poke",
+                "sec2":     "Revitalize — amplifies all your enchanter heals and shields",
+                "shards":   "AH + AP shard for more and stronger heals, Armor for lane",
+            }
+        ),
+    ],
 }
 
 
@@ -218,14 +296,18 @@ RUNE_PAGES: dict[str, list[dict]] = {
 def build_rune_context(ally_comp: dict, enemy_comp: dict) -> dict:
     fighting_adcs = {"Samira", "Draven", "Jinx", "Tristana", "Kaisa"}
     peel_adcs     = {"Vayne", "Ezreal", "Aphelios", "Caitlyn", "Jhin"}
+    ap_carries    = {"Swain", "Kassadin", "Viktor", "Cassiopeia", "Ryze", "Syndra",
+                     "Veigar", "Orianna", "Azir", "Lux", "Ahri", "Diana", "Katarina"}
     ally_names    = {n for n, _ in ally_comp["resolved"]}
 
     return {
         "always":           True,
         "fighting_adc":     bool(ally_names & fighting_adcs),
         "peel_adc":         bool(ally_names & peel_adcs),
+        "ally_ap_carry":    bool(ally_names & ap_carries),
         "heavy_cc_enemy":   (enemy_comp["hard_cc"] + enemy_comp["soft_cc"]) >= 4,
         "late_game_enemy":  len(enemy_comp["late_scalers"]) >= 2,
+        "has_assassin":     len(enemy_comp["assassins"]) >= 1,
         "assassin_enemy":   len(enemy_comp["assassins"]) >= 1,
         "magic_heavy":      enemy_comp["magic_dmg"] >= 3,
         "physical_heavy":   enemy_comp["phys_dmg"] >= 3,
