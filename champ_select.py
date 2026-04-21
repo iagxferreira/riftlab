@@ -85,6 +85,35 @@ POOL = {
         ]),
     ),
 
+    "Diana": dict(
+        role="AP assassin jungler",
+        strengths=[
+            "Enemy has cc_heavy comp — you engage first and reset with R",
+            "Team has no frontline — Diana can be the engage",
+            "Enemy has multiple squishy targets grouped (W + R AoE)",
+            "Team needs AP carry in the jungle",
+        ],
+        weaknesses=[
+            "Enemy has hard peel for their carries (Lulu, Janna, Milio)",
+            "Enemy has Zed/Talon — you have no escape after committing",
+            "Team already has 2 AP sources — redundant damage",
+        ],
+        favor=lambda ally, enemy, ctx: sum([
+            ctx.get("heavy_cc_enemy", False),                         # her engage beats CC comps
+            len(ally["frontline"]) == 0,                              # team needs an engage
+            enemy["primary_win_con"] in ("teamfight", "scale"),       # punish grouped fights
+            len(enemy["assassins"]) == 0,                             # safe to dive
+            enemy["magic_dmg"] <= 1,                                  # not overkill on AP
+            len([c for _, c in enemy["resolved"]
+                 if c.get("mobility") == "low"]) >= 2,                # immobile targets = easy landing
+        ]),
+        against=lambda ally, enemy, ctx: sum([
+            len(enemy["assassins"]) >= 2,                             # getting blown up pre-engage
+            enemy["primary_win_con"] == "poke",                       # can't close the gap
+            ally["magic_dmg"] >= 3,                                   # team already AP-heavy
+        ]),
+    ),
+
     "Ekko": dict(
         role="AP assassin (mid/jungle)",
         strengths=[
@@ -172,6 +201,16 @@ def print_champion_pick(ally_comp: dict, enemy_comp: dict, ctx: dict):
         if ctx.get("ally_ap_carry"):  reasons.append("AP carry on your team — Staff of Flowing Water gives them AP and haste")
         if "Morgana" in [n for n, _ in enemy_comp["resolved"]]:
             reasons.append("Morgana on enemy — Black Shield counters Rakan W, play Milio instead")
+
+    elif recommended == "Diana":
+        if ctx.get("heavy_cc_enemy"):
+            reasons.append("CC-heavy enemy — Diana engages first and resets with R before they can respond")
+        if len(ally_comp["frontline"]) == 0:
+            reasons.append("No frontline on your team — Diana's engage fills that gap from the jungle")
+        if enemy_comp["primary_win_con"] in ("teamfight", "scale"):
+            reasons.append(f"Enemy wants to {enemy_comp['primary_win_con'].upper()} — W + R disrupts their grouped fights")
+        if len(enemy_comp["assassins"]) == 0:
+            reasons.append("No assassins to punish your dive — you can go in freely")
 
     elif recommended == "Ekko":
         if len(enemy_comp["frontline"]) >= 2:
