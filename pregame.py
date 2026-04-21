@@ -273,6 +273,56 @@ def generate_loading_tips(
             "③ Knight's Vow on your ADC before first back  "
             "④ W to save, not to initiate, when assassins are alive"))
 
+    # --- Ekko-specific coaching ---
+    if my_champ.lower() == "ekko":
+        # R philosophy
+        tips.append(("good",
+            "[bold]R is your safety net, not a panic button.[/bold] "
+            "Use it to enable dives you wouldn't normally take — go in hard, "
+            "W bubble, burst, and only R if they turn. "
+            "If you save R for emergencies you'll never use it aggressively enough."))
+
+        # Mid carry loop
+        tips.append(("info",
+            "[bold]Mid carry loop:[/bold] "
+            "① Level 3 — shove the wave fast  "
+            "② Roam to whoever is winning their lane — burn Flash on one kill  "
+            "③ Back, buy, return to mid, repeat every 3 minutes  "
+            "④ Never roam if you're behind — farm and look for solo kill first"))
+
+        # W usage
+        grouped = len(enemy_comp["frontline"]) >= 2 or enemy_comp["primary_win_con"] in ("teamfight", "engage")
+        if grouped:
+            tips.append(("good",
+                "Enemy groups up — your W bubble does AoE stun. "
+                "Flash into their backline, drop W on 2+ people, burst the carry. "
+                "This is your win condition teamfight."))
+        else:
+            tips.append(("info",
+                "W is a single-target stun here — use it to lock down one carry, "
+                "not to zone. Drop it where they're running to, not where they are."))
+
+        # Passive reminder
+        tips.append(("warn",
+            "[bold]Passive (Z-Drive):[/bold] Every 3rd hit deals bonus magic damage + slows. "
+            "AA between abilities to keep the stack building. "
+            "Q → AA → E → AA is more damage than skipping autos."))
+
+        # Matchup check
+        assassin_enemies = enemy_comp.get("assassins", [])
+        if assassin_enemies:
+            tips.append(("warn",
+                f"[bold]{', '.join(assassin_enemies)}[/bold] can one-shot you before R casts. "
+                "Build [bold]Zhonya's[/bold] as your 2nd or 3rd item — "
+                "Hourglass active buys the 2.5s you need for R to rewind."))
+
+        tips.append(("info",
+            "[bold]Ekko checklist:[/bold] "
+            "① Farm to 6 — don't force kills before ult  "
+            "② First roam after Level 6 with ult up  "
+            "③ AA between spells to proc passive  "
+            "④ R to rewind bad dives, not to escape after inting"))
+
     return tips
 
 
@@ -366,6 +416,147 @@ def print_loading_tips(tips: list[tuple[str, str]]):
 
 
 # ---------------------------------------------------------------------------
+# Ally stats & roam priority
+# ---------------------------------------------------------------------------
+
+def fetch_ally_stats(ally_participants: list[dict]) -> list[dict]:
+    """Fetch recent form for each ally using their PUUIDs from spectator data."""
+    result = []
+    for p in ally_participants:
+        puuid = p["puuid"]
+        name  = p.get("riotIdGameName") or p.get("summonerName", "?")
+        champ = champ_name_from_id(p["championId"])
+
+        try:
+            time.sleep(0.1)
+            form = get_recent_form(puuid, n=5)
+        except Exception:
+            form = []
+
+        if not form:
+            result.append({"name": name, "champion": champ, "form": [], "tag": "NO DATA"})
+            continue
+
+        wr         = sum(1 for r in form if r["win"]) / len(form)
+        avg_d      = sum(r["deaths"] for r in form) / len(form)
+        avg_kp     = sum(r["kp"] for r in form) / len(form)
+        hot_streak = all(r["win"] for r in form[:3])
+        cold       = not any(r["win"] for r in form[:3])
+
+        if wr >= 0.60 and avg_d <= 5:
+            tag = "CAMP"
+        elif wr <= 0.35 or avg_d >= 9:
+            tag = "AVOID"
+        else:
+            tag = "NEUTRAL"
+
+        result.append({
+            "name":       name,
+            "champion":   champ,
+            "wr":         wr,
+            "avg_deaths": avg_d,
+            "avg_kp":     avg_kp,
+            "hot_streak": hot_streak,
+            "cold":       cold,
+            "form":       form,
+            "tag":        tag,
+        })
+
+    return result
+
+
+def print_ally_stats(ally_stats: list[dict]):
+    t = Table(title="Teammate Recent Form (last 5 games)", box=box.ROUNDED)
+    t.add_column("Player",     style="cyan", min_width=12)
+    t.add_column("Champion",   min_width=14)
+    t.add_column("WR",         justify="center")
+    t.add_column("Avg Deaths", justify="center")
+    t.add_column("Avg KP",     justify="center")
+    t.add_column("Tag",        justify="center")
+
+    for a in ally_stats:
+        if a["tag"] == "NO DATA":
+            t.add_row(a["name"], a["champion"], "—", "—", "—", "[dim]no data[/dim]")
+            continue
+
+        wr_c  = "green" if a["wr"] >= 0.6 else ("yellow" if a["wr"] >= 0.4 else "red")
+        d_c   = "green" if a["avg_deaths"] <= 4 else ("yellow" if a["avg_deaths"] <= 7 else "red")
+        tag_c = "green" if a["tag"] == "CAMP" else ("red" if a["tag"] == "AVOID" else "white")
+        streak = " [bold yellow]HOT[/bold yellow]" if a.get("hot_streak") else (" [bold blue]COLD[/bold blue]" if a.get("cold") else "")
+
+        t.add_row(
+            a["name"],
+            f"{a['champion']}{streak}",
+            f"[{wr_c}]{a['wr']*100:.0f}%[/{wr_c}]",
+            f"[{d_c}]{a['avg_deaths']:.1f}[/{d_c}]",
+            f"{a['avg_kp']*100:.0f}%",
+            f"[bold {tag_c}]{a['tag']}[/bold {tag_c}]",
+        )
+
+    console.print(t)
+
+
+def print_roam_priority(ally_stats: list[dict], my_team_id: int, my_champ: str, ally_comp: dict):
+    camps  = [a for a in ally_stats if a["tag"] == "CAMP"]
+    avoids = [a for a in ally_stats if a["tag"] == "AVOID"]
+
+    side_label = "Blue side" if my_team_id == 100 else "Red side"
+    side_tip = (
+        "Blue side — after winning bot, path mid through river (shorter). "
+        "Dragon is your primary objective; push wave first, then take it."
+        if my_team_id == 100 else
+        "Red side — roam mid via tri-bush. Baron becomes priority post-14 min. "
+        "After a fight, rotate top through mid to snowball the map."
+    )
+
+    lines = []
+
+    if camps:
+        names = ", ".join(
+            f"[bold green]{a['champion']}[/bold green] ({a['wr']*100:.0f}% WR)"
+            for a in camps
+        )
+        lines.append(
+            f"[green]CAMP →[/green]  {names}\n"
+            "  They're in form — invest early resources here and snowball their lead."
+        )
+
+    if avoids:
+        names = ", ".join(
+            f"[bold red]{a['champion']}[/bold red] ({a['wr']*100:.0f}% WR, {a['avg_deaths']:.1f} avg deaths)"
+            for a in avoids
+        )
+        lines.append(
+            f"[red]AVOID →[/red]  {names}\n"
+            "  Don't waste wards or roams here. Let them play safe and don't tilt over it."
+        )
+
+    lines.append(f"[blue]Side:[/blue]  {side_label} — {side_tip}")
+
+    if my_champ.lower() == "rakan":
+        if camps:
+            camp_champ = camps[0]["champion"]
+            lines.append(
+                f"[cyan]Rakan roam:[/cyan]  Win bot level 2-3, push wave, then burn Flash "
+                f"on {camp_champ}'s lane to get a kill. Return immediately. "
+                "Only roam if you're equal or ahead — never from behind."
+            )
+        else:
+            lines.append(
+                "[cyan]Rakan roam:[/cyan]  No standout lane to camp. "
+                "Play for bot lane vision, Dragon control, and peel your ADC. "
+                "Roam only after shoving a wave under their tower."
+            )
+
+    console.print(Panel(
+        "\n\n".join(lines),
+        title="[bold]Roam Priority[/bold]",
+        border_style="blue",
+        padding=(1, 2),
+    ))
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -386,14 +577,21 @@ def main():
     my_champ, enemy_champs, keystones = fetch_live_data(args.account)
 
     _load_champ_id_map()
+    my_team_id       = 100
+    ally_names       = []
+    ally_participants = []
     try:
         data = _get(f"{BASE_SUMMONER}/lol/spectator/v5/active-games/by-summoner/{(lambda: get_account(game_name, tag)['puuid'])()}")
         my_team_id = next(p["teamId"] for p in data["participants"]
                           if champ_name_from_id(p["championId"]) == my_champ)
         ally_names = [champ_name_from_id(p["championId"]) for p in data["participants"]
                       if p["teamId"] == my_team_id and champ_name_from_id(p["championId"]) != my_champ]
+        ally_participants = [p for p in data["participants"]
+                             if p["teamId"] == my_team_id
+                             and champ_name_from_id(p["championId"]) != my_champ]
     except Exception:
-        ally_names = []
+        ally_names        = []
+        ally_participants = []
 
     # Fetch recent form in parallel with comp analysis
     console.print("[dim]Fetching recent form...[/dim]")
@@ -423,6 +621,13 @@ def main():
     console.print(Rule("[bold]Comp Overview[/bold]"))
     console.print(comp_table("Your Team",  ally_comp,  "green"))
     console.print(comp_table("Enemy Team", enemy_comp, "red"))
+
+    if ally_participants:
+        console.print(Rule("[bold]Teammate Stats[/bold]"))
+        console.print("[dim]Fetching ally recent form...[/dim]")
+        ally_stats = fetch_ally_stats(ally_participants)
+        print_ally_stats(ally_stats)
+        print_roam_priority(ally_stats, my_team_id, my_champ, ally_comp)
 
     console.print(Rule("[bold]Enemy Keystones[/bold]"))
     print_enemy_read(enemy_champs, keystones, {})

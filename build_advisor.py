@@ -270,6 +270,34 @@ ADAPTIVE_ITEMS = [
     dict(name="Warmog's Armor", slot="flex", cost=3000,
          condition=lambda t, champ: champ.lower() == "rakan" and t["burst_magic"] + t["burst_physical"] >= 2,
          reason="Makes you hard to kill between engages — keeps you going in vs assassin-heavy enemy"),
+
+    # Ekko core
+    dict(name="Shadowflame → Rabadon's", slot="mythic", cost=3200,
+         condition=lambda t, champ: champ.lower() == "ekko" and t["total_ad"] >= t["total_ap"],
+         reason="Shadowflame first — flat magic pen one-shots squishies. Rush Rabadon's 3rd to double your AP"),
+    dict(name="Luden's Tempest → Rabadon's", slot="mythic", cost=3200,
+         condition=lambda t, champ: champ.lower() == "ekko" and t["total_ap"] > t["total_ad"],
+         reason="Luden's first vs magic-heavy enemy — extra mobility and poke before you can dive safely"),
+    dict(name="Sorcerer's Shoes", slot="boots", cost=1100,
+         condition=lambda t, champ: champ.lower() == "ekko",
+         reason="Magic pen boots are core — increases every spell's damage by ~10% early"),
+
+    # Ekko situational
+    dict(name="Zhonya's Hourglass", slot="flex", cost=2600,
+         condition=lambda t, champ: champ.lower() == "ekko" and (t["burst_physical"] >= 1 or t["total_ad"] >= 3),
+         reason="Rush this 2nd vs assassins/AD heavy — Hourglass active buys the 2.5s you need for R to rewind"),
+    dict(name="Banshee's Veil", slot="flex", cost=3100,
+         condition=lambda t, champ: champ.lower() == "ekko" and t["burst_magic"] >= 1,
+         reason="Spell shield blocks the setup that kills you before R — buy vs Syndra, Orianna, Lissandra"),
+    dict(name="Void Staff", slot="flex", cost=2800,
+         condition=lambda t, champ: champ.lower() == "ekko" and t["tank_count"] >= 2,
+         reason="40% magic pen — enemy building MR, this turns your burst back on. Buy 3rd or 4th"),
+    dict(name="Cosmic Drive", slot="flex", cost=3000,
+         condition=lambda t, champ: champ.lower() == "ekko" and t["total_ap"] >= 3 and t["burst_magic"] == 0,
+         reason="AP + move speed + haste — lets you stick to targets and cast more rotations in extended fights"),
+    dict(name="Morellonomicon", slot="flex", cost=2500,
+         condition=lambda t, champ: champ.lower() == "ekko" and t["healing"] >= 2,
+         reason="GW on your W/Q hits — buy before 3rd item when enemy has 2+ healers"),
 ]
 
 

@@ -36,5 +36,19 @@
         "n": 1
       }
     }
+  },
+  "Ekko": {
+    "ad_heavy,cc_heavy,mixed_dmg": {
+      "keystone:Dark Harvest": {
+        "score": 0.2,
+        "n": 1
+      }
+    },
+    "cc_heavy,late_game,mixed_dmg,peel_adc": {
+      "keystone:Electrocute": {
+        "score": 0.1773,
+        "n": 1
+      }
+    }
   }
 }

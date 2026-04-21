@@ -288,6 +288,8 @@ CHAMP_DB: list[tuple[str, list[str], str, int]] = [
      "Passive farm jungler with global ult pressure; Shadowflame + Rabadon's one-shots after items", 1),
     ("Morgana",      ["ability-damage", "mid-laner", "support", "cc-heavy"],
      "Black Shield counters engage; Q root + ult creates easy kill setups in mid or support", 1),
+    ("Ekko",         ["ability-damage", "mid-laner", "jungler", "carry", "aggressive", "playmaker", "high-risk"],
+     "Assassin with an undo button — aggressive plays punished less; R makes diving safe; W bubble stuns grouped enemies", 2),
 ]
 
 

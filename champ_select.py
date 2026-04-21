@@ -84,6 +84,36 @@ POOL = {
             enemy["primary_win_con"] == "engage" and not ctx.get("heavy_cc_enemy", False),
         ]),
     ),
+
+    "Ekko": dict(
+        role="AP assassin (mid/jungle)",
+        strengths=[
+            "Enemy has tanks or multiple melee champions (passive procs for free)",
+            "You can pick off isolated targets — W bubble + Q + E burst",
+            "Team needs AP damage and pick potential",
+            "Snowball games — one early kill leads to R-safe all-ins",
+            "Enemy has no hard peelers to protect their carries",
+        ],
+        weaknesses=[
+            "Enemy has hard CC chain that fires before you can R (Lissandra, Leona)",
+            "Heavy poke comp keeps you out of range to proc passive",
+            "Team already has 2+ assassins — redundant damage type",
+        ],
+        favor=lambda ally, enemy, ctx: sum([
+            len(enemy["frontline"]) >= 2,                          # tanks = free passive procs
+            enemy["primary_win_con"] in ("scale", "teamfight"),    # punish grouped enemies with W
+            ally["primary_win_con"] in ("pick", "engage"),         # team wants picks / can follow
+            not ctx.get("heavy_cc_enemy", False),                  # safe to dive without CC chain
+            enemy["phys_dmg"] >= 3,                                # armor stacking enemy → Ekko magic bypasses
+            len([c for _, c in enemy["resolved"]
+                 if c.get("mobility") == "low"]) >= 2,             # immobile targets = easy W lands
+        ]),
+        against=lambda ally, enemy, ctx: sum([
+            ctx.get("heavy_cc_enemy", False),                      # CC before R = dead
+            enemy["primary_win_con"] == "poke",                    # can't approach safely
+            len(enemy["assassins"]) >= 2,                          # getting assassinated before R
+        ]),
+    ),
 }
 
 
@@ -142,6 +172,16 @@ def print_champion_pick(ally_comp: dict, enemy_comp: dict, ctx: dict):
         if ctx.get("ally_ap_carry"):  reasons.append("AP carry on your team — Staff of Flowing Water gives them AP and haste")
         if "Morgana" in [n for n, _ in enemy_comp["resolved"]]:
             reasons.append("Morgana on enemy — Black Shield counters Rakan W, play Milio instead")
+
+    elif recommended == "Ekko":
+        if len(enemy_comp["frontline"]) >= 2:
+            reasons.append("Enemy has tanks — your magic damage bypasses their armor, passive procs for free")
+        if not ctx.get("heavy_cc_enemy"):
+            reasons.append("No CC chain on the enemy — you can dive, W, and R out safely")
+        if enemy_comp["primary_win_con"] in ("scale", "teamfight"):
+            reasons.append(f"Enemy win con is {enemy_comp['primary_win_con'].upper()} — W bubble disrupts their grouped fight")
+        if ally_comp["primary_win_con"] in ("pick", "engage"):
+            reasons.append(f"Your team wants {ally_comp['primary_win_con'].upper()} — Ekko's kit enables kills and follows")
 
     if not reasons:
         reasons.append(f"Better overall fit for this specific comp matchup (score: {scores[0]['score']:+.0f})")

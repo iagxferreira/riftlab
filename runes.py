@@ -209,6 +209,84 @@ RUNE_PAGES: dict[str, list[dict]] = {
         ),
     ],
 
+    "Ekko": [
+        dict(
+            name="Electrocute (Standard burst)",
+            scenario="Default — burst pattern Q-E-W, kill before they react",
+            conditions=["always"],
+            anti=["heavy_cc_enemy"],
+            primary="Domination",
+            keystone=8112,    # Electrocute
+            row1=8143,        # Sudden Impact — E dash procs it every engage
+            row2=8137,        # Sixth Sense
+            row3=8135,        # Treasure Hunter
+            secondary="Sorcery",
+            sec1=8210,        # Transcendence
+            sec2=8237,        # Scorch
+            shards=["AP", "AH", "Armor"],
+            why={
+                "keystone": "Electrocute — 3-hit proc lines up perfectly with Q-auto-E combo, bursts squishies in one rotation",
+                "row1":     "Sudden Impact — every E dash gives 10 lethality + 9 magic pen for free, massive burst damage",
+                "row2":     "Sixth Sense — vision on low HP enemies helps you find solo kills in fog of war",
+                "row3":     "Treasure Hunter — gold on first kill in each bounty = faster item spike",
+                "secondary":"Sorcery for CDR and early lane damage",
+                "sec1":     "Transcendence — AH cap overflow → extra ability power, more R casts",
+                "sec2":     "Scorch — early burn on Q chip, punishes enemies who don't respect level 3",
+                "shards":   "AP shard for W burst scaling, AH for more rotations, Armor vs AD lane",
+            }
+        ),
+        dict(
+            name="Dark Harvest (Snowball/Late)",
+            scenario="Enemy has tanks or game is expected to go late — scales harder than Electrocute",
+            conditions=["late_game_enemy"],
+            anti=["peel_adc"],  # Lulu/Janna protect their carry — need Electrocute burst, not ramp-up
+            primary="Domination",
+            keystone=8128,    # Dark Harvest
+            row1=8143,        # Sudden Impact
+            row2=8137,        # Sixth Sense
+            row3=8135,        # Treasure Hunter
+            secondary="Sorcery",
+            sec1=8210,        # Transcendence
+            sec2=8236,        # Gathering Storm
+            shards=["AP", "AH", "Armor"],
+            why={
+                "keystone": "Dark Harvest — each kill/assist stacks it, by mid game one-shots without needing full combo",
+                "row1":     "Sudden Impact — E dash magic pen procs on every engage, synergizes with Dark Harvest burst",
+                "row2":     "Sixth Sense — find low HP enemies to stack Dark Harvest faster",
+                "row3":     "Treasure Hunter — gold advantage lets you hit 2 items before enemy carries",
+                "secondary":"Sorcery for AP scaling",
+                "sec1":     "Transcendence — AH overflow → AP, more R uses late game",
+                "sec2":     "Gathering Storm — free AP every 10 min, W bubble damage scales extremely hard",
+                "shards":   "AP for scaling burst, AH for rotations, Armor vs physical lane",
+            }
+        ),
+        dict(
+            name="Phase Rush (vs CC)",
+            scenario="Enemy has heavy CC chain (Lissandra, Leona, Nautilus) — need escape after W lands",
+            conditions=["heavy_cc_enemy"],
+            anti=[],
+            primary="Sorcery",
+            keystone=8230,    # Phase Rush
+            row1=8226,        # Manaflow Band
+            row2=8210,        # Transcendence
+            row3=8236,        # Gathering Storm
+            secondary="Domination",
+            sec1=8143,        # Sudden Impact
+            sec2=8135,        # Treasure Hunter
+            shards=["AP", "AH", "Armor"],
+            why={
+                "keystone": "Phase Rush — 3 quick hits give 30-40% MS, lets you dive in, proc W stun, then sprint out before CC lands",
+                "row1":     "Manaflow Band — mana sustain for longer games where you can't just one-shot",
+                "row2":     "Transcendence — extra AH for more W/R casts in extended fights",
+                "row3":     "Gathering Storm — AP scaling because you'll be playing safe early vs their CC",
+                "secondary":"Domination for magic pen on your engages",
+                "sec1":     "Sudden Impact — E dash still procs magic pen even when playing defensively",
+                "sec2":     "Treasure Hunter — accelerate item spike to hit Phase Rush + AP breakpoint faster",
+                "shards":   "AP for W bubble damage, AH for R cooldown, Armor vs physical CC",
+            }
+        ),
+    ],
+
     "Milio": [
         dict(
             name="Summon Aery (Standard)",

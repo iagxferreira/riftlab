@@ -91,9 +91,22 @@ def format_rank(entries: list[dict]) -> str:
 # ---------------------------------------------------------------------------
 
 def get_match_ids(puuid: str, count: int = 20, queue: int = 420) -> list[str]:
-    """queue 420 = Solo/Duo ranked."""
+    """queue 420 = Solo/Duo ranked. Paginates automatically for count > 100."""
     url = f"{BASE_ACCOUNT}/lol/match/v5/matches/by-puuid/{puuid}/ids"
-    return _get(url, {"queue": queue, "count": count})
+    if count <= 100:
+        return _get(url, {"queue": queue, "count": count})
+    ids = []
+    start = 0
+    while len(ids) < count:
+        batch = _get(url, {"queue": queue, "count": min(100, count - len(ids)), "start": start})
+        if not batch:
+            break
+        ids.extend(batch)
+        if len(batch) < 100:
+            break
+        start += len(batch)
+        time.sleep(0.05)
+    return ids
 
 
 def get_match(match_id: str) -> dict:

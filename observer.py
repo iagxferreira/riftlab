@@ -85,7 +85,16 @@ EXPECTED_ITEMS = {
     ("support_utility",   "mid"):  ["Imperial Mandate or Shurelya's", "Redemption"],
 }
 
-def expected_build(cls: str, phase: str) -> str:
+# Champion-specific overrides — wins over class lookup
+EXPECTED_ITEMS_CHAMP = {
+    ("Ekko", "mid"):  ["Shadowflame or Luden's", "Sorcerer's Shoes", "Zhonya's Hourglass"],
+    ("Ekko", "late"): ["Rabadon's Deathcap", "Void Staff or Cryptbloom"],
+}
+
+def expected_build(cls: str, phase: str, champ: str = "") -> str:
+    override = EXPECTED_ITEMS_CHAMP.get((champ, phase))
+    if override:
+        return ", ".join(override)
     return ", ".join(EXPECTED_ITEMS.get((cls, phase), ["—"]))
 
 
@@ -171,7 +180,7 @@ def phase_report(
             if not data:
                 continue
             cls   = data.get("cls", "—")
-            exp   = expected_build(cls, phase)
+            exp   = expected_build(cls, phase, champ=name)
             ks_id = keystones.get(name, 0)
             ks    = KEYSTONES.get(ks_id, {})
             warns = []
@@ -191,28 +200,52 @@ def phase_report(
         console.print(Rule("[bold]Updated Build (with enemy items)[/bold]"))
         print_recommendations(my_champ, recommendations)
 
-    # Phase-specific Rakan tips
-    rakan_tips = {
-        "early": [
-            "Roam mid after level 3 if bot lane has priority — your W range covers the whole lane",
-            "Don't use R unless you're sure you hit 3+ people or saving someone from death",
-            "Knight's Vow on your carry as soon as you recall",
-        ],
-        "mid": [
-            "Stay grouped — your R is only impactful in 5v5, not skirmishes",
-            "Locket active the instant R lands — don't wait to see if they're in range",
-            "Ward enemy jungle entrances before every objective fight",
-        ],
-        "late": [
-            "In late game teamfights, W is a save tool first, engage tool second",
-            "One bad R misclick ends the game — only ult when you'll hit 3+",
-            "You should have full items — if you don't, prioritize completing over upgrading",
-        ],
+    # Phase-specific champion tips
+    PHASE_TIPS = {
+        "Rakan": {
+            "early": [
+                "Roam mid after level 3 if bot lane has priority — your W range covers the whole lane",
+                "Don't use R unless you're sure you hit 3+ people or saving someone from death",
+                "Knight's Vow on your carry as soon as you recall",
+            ],
+            "mid": [
+                "Stay grouped — your R is only impactful in 5v5, not skirmishes",
+                "Locket active the instant R lands — don't wait to see if they're in range",
+                "Ward enemy jungle entrances before every objective fight",
+            ],
+            "late": [
+                "In late game teamfights, W is a save tool first, engage tool second",
+                "One bad R misclick ends the game — only ult when you'll hit 3+",
+                "You should have full items — if you don't, prioritize completing over upgrading",
+            ],
+        },
+        "Ekko": {
+            "early": [
+                "Farm to level 6 before forcing anything — your kill pattern needs R as backup",
+                "AA between every spell to keep Z-Drive passive stacking (every 3rd hit = bonus damage + slow)",
+                "W bubble: drop it WHERE they're running to, not where they are — they'll walk into it",
+                "First roam window opens at level 6 with ult up — not before unless you're snowballing",
+            ],
+            "mid": [
+                "Carry loop: push wave → roam → burn Flash on one kill → back → buy → repeat every 3 min",
+                "R is your safety net — go for dives you wouldn't take without it. If it goes wrong, rewind",
+                "Enemy grouping for dragon? W bubble hits multiple people — Flash into their backline, W, burst carry, R out",
+                "Every kill/assist stacks Dark Harvest — prioritize being in the fight even if you don't get the kill",
+            ],
+            "late": [
+                "Teamfight pattern: flank from the side → E onto their carry → W bubble on grouped enemies → burst → R if needed",
+                "Zhonya's active + R = unkillable combo. Use Hourglass to bait their abilities, then rewind before it ends",
+                "W bubble at baron/drag pit is lethal — they're grouped and can't dodge it. Wait for the cluster, then go in",
+                "If behind: don't 1v1, wait for 5v5 where W can hit 2+ people and you can R out safely",
+            ],
+        },
     }
-    tips = rakan_tips.get(phase, [])
+
+    champ_tips = PHASE_TIPS.get(my_champ, {})
+    tips = champ_tips.get(phase, [])
     if tips:
         lines = "\n".join(f"  [blue]→[/blue]  {t}" for t in tips)
-        console.print(Panel(lines, title=f"[bold]Rakan — {phase.capitalize()} Phase[/bold]", border_style="blue", padding=(1, 2)))
+        console.print(Panel(lines, title=f"[bold]{my_champ} — {phase.capitalize()} Phase[/bold]", border_style="blue", padding=(1, 2)))
 
     console.print()
 
