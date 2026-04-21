@@ -17,6 +17,24 @@
         "score": -0.1921,
         "n": 1
       }
+    },
+    "ap_heavy,cc_heavy,late_game": {
+      "keystone:Guardian": {
+        "score": -0.0735,
+        "n": 1
+      }
+    },
+    "ad_heavy,cc_heavy,has_assassin": {
+      "keystone:Guardian": {
+        "score": 0.2,
+        "n": 1
+      }
+    },
+    "ad_heavy,cc_heavy,fighting_adc": {
+      "keystone:Guardian": {
+        "score": -0.139,
+        "n": 1
+      }
     }
   }
 }
