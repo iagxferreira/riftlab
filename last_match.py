@@ -189,7 +189,7 @@ def generate_feedback(p: dict, deaths: list[dict], baseline: dict | None, durati
     # --- Bounty gold given ---
     if bounty_gold > 500:
         feedback.append(("warn",
-            f"You gave [bold]{bounty_gold} gold[/bold] in bounties. "
+            f"You gave [bold]{int(bounty_gold)} gold[/bold] in bounties. "
             "That means you were ahead at some point and died, feeding gold back. "
             "When you have a bounty, play safer — one death erases your lead."))
 
@@ -300,17 +300,23 @@ def print_scoreboard(match: dict, puuid: str):
         t.add_column("Champion", style="cyan", min_width=14)
         t.add_column("KDA", justify="center")
         t.add_column("CS", justify="right")
-        t.add_column("Dmg", justify="right")
+        t.add_column("Dmg dealt", justify="right")
+        t.add_column("Dmg taken", justify="right")
+        t.add_column("Gold", justify="right")
         t.add_column("Vision", justify="right")
+        t.add_column("CC time", justify="right")
 
         for p in players:
             kda = f"{p['kills']}/{p['deaths']}/{p['assists']}"
             cs = p["totalMinionsKilled"] + p["neutralMinionsKilled"]
-            dmg = f"{p['totalDamageDealtToChampions']:,}"
+            dmg_dealt = f"{p['totalDamageDealtToChampions']:,}"
+            dmg_taken = f"{p['totalDamageTaken']:,}"
+            gold = f"{p['goldEarned']:,}"
             vis = str(p["visionScore"])
+            cc_time = f"{p.get('timeCCingOthers', 0)}s"
             style = "bold" if p["puuid"] == puuid else ""
             name = f"[bold]{p['championName']}[/bold]" if p["puuid"] == puuid else p["championName"]
-            t.add_row(name, kda, str(cs), dmg, vis, style=style)
+            t.add_row(name, kda, str(cs), dmg_dealt, dmg_taken, gold, vis, cc_time, style=style)
         console.print(t)
 
 
@@ -334,7 +340,7 @@ def print_match_header(p: dict, duration_m: float, match_id: str):
         f"[bold]Vision:[/bold] {p['visionScore']}",
         f"[bold]Control wards:[/bold] {p.get('detectorWardsPlaced', 0) + ch.get('controlWardsPlaced', 0)}   "
         f"[bold]Dead time:[/bold] {p.get('totalTimeSpentDead', 0) // 60}m{p.get('totalTimeSpentDead', 0) % 60:02d}s   "
-        f"[bold]Bounty given:[/bold] {ch.get('bountyGold', 0)}g",
+        f"[bold]Bounty given:[/bold] {int(ch.get('bountyGold', 0))}g",
     ]
     border = "green" if p["win"] else "red"
     console.print(Panel("\n".join(lines), title="[bold]Last Match[/bold]", border_style=border))

@@ -232,10 +232,16 @@ def generate_loading_tips(
             "Land CC before they can dash away — don't chase after a missed engage."))
 
     # --- Assassin threat ---
-    if enemy_comp["assassins"]:
-        tips.append(("warn",
-            f"[bold]{', '.join(enemy_comp['assassins'])}[/bold] will go for your squishiest carry. "
-            "As Rakan: save W to knock them away from your ADC, don't use it to initiate when assassins are alive."))
+    _assassin_champs = ("khazix", "kha'zix", "ekko", "diana", "zed", "talon", "katarina", "akali", "rengar", "kayn")
+    if enemy_comp["assassins"] and my_champ.lower() not in _assassin_champs:
+        if my_champ.lower() == "rakan":
+            tips.append(("warn",
+                f"[bold]{', '.join(enemy_comp['assassins'])}[/bold] will go for your squishiest carry. "
+                "Save W to knock them away from your ADC — don't use it to initiate when assassins are alive."))
+        else:
+            tips.append(("warn",
+                f"[bold]{', '.join(enemy_comp['assassins'])}[/bold] will look to one-shot your carries. "
+                "Track their position before walking forward — don't get caught out of position."))
 
     # --- GW reminder ---
     if threats.get("healing", 0) >= 2:
@@ -272,6 +278,39 @@ def generate_loading_tips(
             "② Pop Locket the moment you land R  "
             "③ Knight's Vow on your ADC before first back  "
             "④ W to save, not to initiate, when assassins are alive"))
+
+    # --- Kha'Zix-specific coaching ---
+    if my_champ.lower() in ("khazix", "kha'zix"):
+        isolated = [n for n, c in enemy_comp["resolved"] if c.get("mobility") == "low"]
+        tips.append(("good",
+            "[bold]Isolation is everything.[/bold] "
+            "Your passive deals 30%+ bonus damage to isolated targets — "
+            "never fight 2v1 if you can help it. Drag them away from their team, then burst."))
+
+        tips.append(("info",
+            "[bold]Jungle loop:[/bold] "
+            "① Full clear to level 6 (3:15)  "
+            "② First gank: whichever lane pushed past mid  "
+            "③ After a kill, reset and counter-jungle their weakside  "
+            "④ Track their jungler — once ahead, invade their camps freely"))
+
+        if isolated:
+            tips.append(("good",
+                f"[bold]{', '.join(isolated[:3])}[/bold] are immobile — "
+                "priority gank targets. They can't escape your E leap once you land on them."))
+
+        if enemy_comp.get("assassins"):
+            tips.append(("warn",
+                f"[bold]{', '.join(enemy_comp['assassins'])}[/bold] on their team. "
+                "Don't duel them at even items — you win the isolated 1v1, but they have more kill pressure in skirmishes. "
+                "Path away from their jungle early."))
+
+        tips.append(("info",
+            "[bold]Kha'Zix checklist:[/bold] "
+            "① Evolve Q first (R > Q > E or R > E > Q)  "
+            "② Always check isolation before committing  "
+            "③ Use E to reset after a kill — land on a new target  "
+            "④ Dark Harvest stacks on every kill — proc it on dying enemies"))
 
     # --- Ekko-specific coaching ---
     if my_champ.lower() == "ekko":
@@ -358,37 +397,64 @@ BROKEN_OR_SNOWBALL = {
     "Vayne":     ("True damage shreds your frontline late; invisible E makes her hard to peel off","snowball"),
 }
 
-ALL_BAN_REASONS = {**RAKAN_COUNTERS, **LANE_BULLIES, **BROKEN_OR_SNOWBALL}
+KHAZIX_COUNTERS = {
+    "Warwick":    ("Sniffs you out at low HP and chains you — can't escape once he locks on",          "khazix_counter"),
+    "Rammus":     ("Thornmail + taunt reflects your physical burst back; you can't isolate him",       "khazix_counter"),
+    "Malphite":   ("High armor, AoE engage — hard to isolate squishies with him in the way",           "khazix_counter"),
+    "Vi":         ("Her R locks you in place — you can't E away from her ult",                         "khazix_counter"),
+    "Lissandra":  ("Self-ult or ally CC freeze denies your burst window completely",                    "khazix_counter"),
+    "Jax":        ("Counterstrike dodges your Q burst, then kills you in a sustained fight",            "khazix_counter"),
+    "Trundle":    ("Steals your AD/armor — your burst literally gets weaker as the fight goes on",      "khazix_counter"),
+}
+
+DIANA_COUNTERS = {
+    "Lissandra":  ("Her self-ult or freeze CC stops your R engage cold",                               "diana_counter"),
+    "Galio":      ("Taunt into his passive burst; his ult counters your whole team dive",               "diana_counter"),
+    "Kassadin":   ("Outscales you and silences your Q approach window",                                 "diana_counter"),
+    "Zed":        ("Burst you before you can R after landing; death mark ignores your engage",          "diana_counter"),
+}
+
+ALL_BAN_REASONS = {**RAKAN_COUNTERS, **LANE_BULLIES, **BROKEN_OR_SNOWBALL, **KHAZIX_COUNTERS, **DIANA_COUNTERS}
 
 
 def recommend_bans(my_champ: str, recent_form: list[dict]) -> list[tuple[str, str, str]]:
-    """Return top 3 ban suggestions as (champion, reason, type)."""
+    """Return top 5 ban suggestions as (champion, reason, type)."""
+    champ_lower = my_champ.lower().replace("'", "").replace(" ", "")
     bans = []
 
-    # Always prioritize direct Rakan counters
-    for champ, (reason, typ) in RAKAN_COUNTERS.items():
-        bans.append((champ, reason, typ))
+    if champ_lower in ("khazix",):
+        priority = ["Warwick", "Rammus", "Vi", "Lissandra", "Jax"]
+        for champ, (reason, typ) in KHAZIX_COUNTERS.items():
+            bans.append((champ, reason, typ))
+        for champ, (reason, typ) in BROKEN_OR_SNOWBALL.items():
+            bans.append((champ, reason, typ))
+    elif champ_lower in ("diana",):
+        priority = ["Lissandra", "Zed", "Galio", "Kassadin", "Shaco"]
+        for champ, (reason, typ) in DIANA_COUNTERS.items():
+            bans.append((champ, reason, typ))
+        for champ, (reason, typ) in BROKEN_OR_SNOWBALL.items():
+            bans.append((champ, reason, typ))
+    else:
+        # Default: Rakan
+        priority = ["Nautilus", "Morgana", "Mel", "Blitzcrank", "Shaco", "Zed", "Leona", "Lux"]
+        for champ, (reason, typ) in RAKAN_COUNTERS.items():
+            bans.append((champ, reason, typ))
+        for champ, (reason, typ) in BROKEN_OR_SNOWBALL.items():
+            bans.append((champ, reason, typ))
+        for champ, (reason, typ) in LANE_BULLIES.items():
+            bans.append((champ, reason, typ))
 
-    # Add snowball/broken picks
-    for champ, (reason, typ) in BROKEN_OR_SNOWBALL.items():
-        bans.append((champ, reason, typ))
-
-    for champ, (reason, typ) in LANE_BULLIES.items():
-        bans.append((champ, reason, typ))
-
-    # Prioritize: Morgana and Nautilus first (hardest counters),
-    # then Mel (user's current ban), then situational
-    priority = ["Nautilus", "Morgana", "Mel", "Blitzcrank", "Shaco", "Zed", "Leona", "Lux"]
     ordered = sorted(bans, key=lambda x: priority.index(x[0]) if x[0] in priority else 99)
-
     return ordered[:5]
 
 
 def print_bans(bans: list[tuple[str, str, str]]):
     TYPE_COLOR = {
-        "rakan_counter": "[red]Rakan counter[/red]",
-        "lane_bully":    "[yellow]Lane bully[/yellow]",
-        "snowball":      "[magenta]Snowball threat[/magenta]",
+        "rakan_counter":  "[red]Rakan counter[/red]",
+        "lane_bully":     "[yellow]Lane bully[/yellow]",
+        "snowball":       "[magenta]Snowball threat[/magenta]",
+        "khazix_counter": "[red]Kha'Zix counter[/red]",
+        "diana_counter":  "[red]Diana counter[/red]",
     }
 
     t = Table(title="Ban Recommendations", box=box.ROUNDED)
@@ -463,6 +529,97 @@ def fetch_ally_stats(ally_participants: list[dict]) -> list[dict]:
         })
 
     return result
+
+
+def fetch_enemy_stats(enemy_participants: list[dict]) -> list[dict]:
+    """Fetch recent form for each enemy using their PUUIDs from spectator data."""
+    result = []
+    for p in enemy_participants:
+        puuid = p["puuid"]
+        champ = champ_name_from_id(p["championId"])
+
+        try:
+            time.sleep(0.1)
+            form = get_recent_form(puuid, n=5)
+        except Exception:
+            form = []
+
+        if not form:
+            result.append({"champion": champ, "form": [], "tag": "NO DATA"})
+            continue
+
+        wr        = sum(1 for r in form if r["win"]) / len(form)
+        avg_d     = sum(r["deaths"] for r in form) / len(form)
+        avg_kp    = sum(r["kp"] for r in form) / len(form)
+        hot       = all(r["win"] for r in form[:3])
+        cold      = not any(r["win"] for r in form[:3])
+
+        if wr >= 0.60 and avg_d <= 5:
+            tag = "STOMP"    # performing well — watch out
+        elif wr <= 0.35 or avg_d >= 9:
+            tag = "TARGET"   # struggling — exploit them
+        else:
+            tag = "NEUTRAL"
+
+        result.append({
+            "champion":   champ,
+            "wr":         wr,
+            "avg_deaths": avg_d,
+            "avg_kp":     avg_kp,
+            "hot_streak": hot,
+            "cold":       cold,
+            "form":       form,
+            "tag":        tag,
+        })
+
+    return result
+
+
+def print_enemy_stats(enemy_stats: list[dict]):
+    t = Table(title="Enemy Recent Form (last 5 games)", box=box.ROUNDED)
+    t.add_column("Champion",   style="cyan", min_width=14)
+    t.add_column("WR",         justify="center")
+    t.add_column("Avg Deaths", justify="center")
+    t.add_column("Avg KP",     justify="center")
+    t.add_column("Threat",     justify="center")
+
+    stomps  = []
+    targets = []
+
+    for e in enemy_stats:
+        if e["tag"] == "NO DATA":
+            t.add_row(e["champion"], "—", "—", "—", "[dim]no data[/dim]")
+            continue
+
+        wr_c  = "green" if e["wr"] >= 0.6 else ("yellow" if e["wr"] >= 0.4 else "red")
+        d_c   = "green" if e["avg_deaths"] <= 4 else ("yellow" if e["avg_deaths"] <= 7 else "red")
+        tag_c = "red" if e["tag"] == "STOMP" else ("green" if e["tag"] == "TARGET" else "white")
+        streak = " [bold yellow]HOT[/bold yellow]" if e.get("hot_streak") else (" [bold blue]COLD[/bold blue]" if e.get("cold") else "")
+
+        t.add_row(
+            f"{e['champion']}{streak}",
+            f"[{wr_c}]{e['wr']*100:.0f}%[/{wr_c}]",
+            f"[{d_c}]{e['avg_deaths']:.1f}[/{d_c}]",
+            f"{e['avg_kp']*100:.0f}%",
+            f"[bold {tag_c}]{e['tag']}[/bold {tag_c}]",
+        )
+
+        if e["tag"] == "STOMP":
+            stomps.append(e)
+        elif e["tag"] == "TARGET":
+            targets.append(e)
+
+    console.print(t)
+
+    # Summary callouts
+    if stomps:
+        names = ", ".join(f"[bold red]{e['champion']}[/bold red] ({e['wr']*100:.0f}% WR)" for e in stomps)
+        console.print(f"  [red]Watch out →[/red]  {names} — in form, don't give them free kills.")
+    if targets:
+        names = ", ".join(f"[bold green]{e['champion']}[/bold green] ({e['wr']*100:.0f}% WR, {e['avg_deaths']:.1f} deaths)" for e in targets)
+        console.print(f"  [green]Target →[/green]  {names} — struggling, look to collapse on them.")
+    if stomps or targets:
+        console.print()
 
 
 def print_ally_stats(ally_stats: list[dict]):
@@ -577,9 +734,10 @@ def main():
     my_champ, enemy_champs, keystones = fetch_live_data(args.account)
 
     _load_champ_id_map()
-    my_team_id       = 100
-    ally_names       = []
-    ally_participants = []
+    my_team_id         = 100
+    ally_names         = []
+    ally_participants  = []
+    enemy_participants = []
     try:
         data = _get(f"{BASE_SUMMONER}/lol/spectator/v5/active-games/by-summoner/{(lambda: get_account(game_name, tag)['puuid'])()}")
         my_team_id = next(p["teamId"] for p in data["participants"]
@@ -589,9 +747,12 @@ def main():
         ally_participants = [p for p in data["participants"]
                              if p["teamId"] == my_team_id
                              and champ_name_from_id(p["championId"]) != my_champ]
+        enemy_participants = [p for p in data["participants"]
+                              if p["teamId"] != my_team_id]
     except Exception:
-        ally_names        = []
-        ally_participants = []
+        ally_names         = []
+        ally_participants  = []
+        enemy_participants = []
 
     # Fetch recent form in parallel with comp analysis
     console.print("[dim]Fetching recent form...[/dim]")
@@ -628,6 +789,12 @@ def main():
         ally_stats = fetch_ally_stats(ally_participants)
         print_ally_stats(ally_stats)
         print_roam_priority(ally_stats, my_team_id, my_champ, ally_comp)
+
+    if enemy_participants:
+        console.print(Rule("[bold]Enemy Stats[/bold]"))
+        console.print("[dim]Fetching enemy recent form...[/dim]")
+        enemy_stats = fetch_enemy_stats(enemy_participants)
+        print_enemy_stats(enemy_stats)
 
     console.print(Rule("[bold]Enemy Keystones[/bold]"))
     print_enemy_read(enemy_champs, keystones, {})

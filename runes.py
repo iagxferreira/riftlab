@@ -287,6 +287,346 @@ RUNE_PAGES: dict[str, list[dict]] = {
         ),
     ],
 
+    "Draven": [
+        dict(
+            name="Lethal Tempo (Standard)",
+            scenario="Default — attack speed lets you spin more axes and stack Adoration faster",
+            conditions=["always"],
+            anti=["heavy_cc_enemy"],
+            primary="Precision",
+            keystone=8008,    # Lethal Tempo
+            row1=9101,        # Overheal
+            row2=9104,        # Legend: Alacrity
+            row3=8299,        # Cut Down
+            secondary="Domination",
+            sec1=8126,        # Cheap Shot
+            sec2=8135,        # Treasure Hunter
+            shards=["AD", "AS", "Armor"],
+            why={
+                "keystone": "Lethal Tempo — stacks to 60% bonus AS; more attacks = more axes caught = more Adoration stacks = bigger ult payoff",
+                "row1":     "Overheal — excess heal converts to shield; keeps you alive through poke while you build stacks",
+                "row2":     "Legend: Alacrity — permanent AS from assists, compounds with Lethal Tempo for even faster axe tempo",
+                "row3":     "Cut Down — most targets have more HP than you; 8% bonus damage on them is free DPS on every axe",
+                "secondary":"Domination for extra damage",
+                "sec1":     "Cheap Shot — any CC in your kit procs true damage; free damage on every slowed target",
+                "sec2":     "Treasure Hunter — Draven snowballs hard; extra gold from first kill accelerates your first item",
+                "shards":   "AD for axe burst, AS for faster stacking, Armor vs bot lane poke",
+            }
+        ),
+        dict(
+            name="Hail of Blades (vs poke/dive)",
+            scenario="Enemy has dive or you want early kill pressure — burst 3 attacks instantly",
+            conditions=["heavy_cc_enemy"],
+            anti=[],
+            primary="Domination",
+            keystone=9923,    # Hail of Blades
+            row1=8126,        # Cheap Shot
+            row2=8138,        # Eyeball Collection
+            row3=8135,        # Treasure Hunter
+            secondary="Precision",
+            sec1=9101,        # Overheal
+            sec2=9104,        # Legend: Alacrity
+            shards=["AD", "AS", "Armor"],
+            why={
+                "keystone": "Hail of Blades — 3 instant attacks on engage procs both axes fast; level 2 all-in with Draven E+Q is a guaranteed kill",
+                "row1":     "Cheap Shot — E slow procs true damage on every engage, free burst in the kill combo",
+                "row2":     "Eyeball Collection — permanent AD stacking from kills, Draven is a kill-snowball champion",
+                "row3":     "Treasure Hunter — extra gold from snowball kills; Draven's passive gives gold on kills so this amplifies it",
+                "secondary":"Precision for sustain and AS",
+                "sec1":     "Overheal — sustain between trades while you look for all-in windows",
+                "sec2":     "Legend: Alacrity — AS scaling for mid/late when Hail of Blades becomes less relevant",
+                "shards":   "AD for level 2 burst, AS for proc speed, Armor vs physical bot lane",
+            }
+        ),
+    ],
+
+    "Caitlyn": [
+        dict(
+            name="Lethal Tempo (Standard)",
+            scenario="Default — attack speed stacks let you fire faster, headshots come more often",
+            conditions=["always"],
+            anti=["heavy_cc_enemy"],
+            primary="Precision",
+            keystone=8008,    # Lethal Tempo
+            row1=9101,        # Overheal
+            row2=9104,        # Legend: Alacrity
+            row3=8299,        # Cut Down — punishes high-HP targets
+            secondary="Domination",
+            sec1=8126,        # Cheap Shot — trap immobilize procs it for free
+            sec2=8135,        # Treasure Hunter
+            shards=["AD", "AS", "Armor"],
+            why={
+                "keystone": "Lethal Tempo — stacks up to 6 AS, each stack = faster headshots; fully stacked you fire significantly faster than base",
+                "row1":     "Overheal — excess healing converts to a shield, keeps you alive after sustain poke in lane",
+                "row2":     "Legend: Alacrity — permanent AS stacks from assists, compounds with Lethal Tempo",
+                "row3":     "Cut Down — most targets have more HP than you; 8% bonus damage on them is free DPS",
+                "secondary":"Domination for extra damage on CC procs",
+                "sec1":     "Cheap Shot — your E trap immobilizes enemies, procing Cheap Shot for free true damage every trap",
+                "sec2":     "Treasure Hunter — first kill gold accelerates your first item spike",
+                "shards":   "AD for headshot burst, AS for faster procs, Armor vs bot lane poke",
+            }
+        ),
+        dict(
+            name="Fleet Footwork (vs poke/dive)",
+            scenario="Enemy has dive assassins or heavy poke — need sustain and escape MS",
+            conditions=["heavy_cc_enemy"],
+            anti=[],
+            primary="Precision",
+            keystone=8021,    # Fleet Footwork
+            row1=9101,        # Overheal
+            row2=9104,        # Legend: Alacrity
+            row3=8299,        # Cut Down
+            secondary="Domination",
+            sec1=8126,        # Cheap Shot
+            sec2=8135,        # Treasure Hunter
+            shards=["AD", "AS", "Armor"],
+            why={
+                "keystone": "Fleet Footwork — empowered auto heals and gives MS; lets you kite engage and sustain through poke without recalling",
+                "row1":     "Overheal — converts Fleet heal overflow into a shield for extra durability",
+                "row2":     "Legend: Alacrity — AS stacks keep your DPS up even when playing safer",
+                "row3":     "Cut Down — still relevant since most enemies have more HP than you",
+                "secondary":"Domination for trap damage",
+                "sec1":     "Cheap Shot — trap procs true damage, free damage even when playing defensively",
+                "sec2":     "Treasure Hunter — item spike is critical vs assassins who snowball hard",
+                "shards":   "AD for headshot damage, AS for sustain procs, Armor vs physical engage",
+            }
+        ),
+    ],
+
+    "Khazix": [
+        dict(
+            name="Dark Harvest (Standard)",
+            scenario="Default — stacks on kills and jungle camps, scales into one-shot territory",
+            conditions=["always"],
+            anti=["heavy_cc_enemy"],
+            primary="Domination",
+            keystone=8128,    # Dark Harvest
+            row1=8143,        # Sudden Impact — E leap procs magic pen
+            row2=8138,        # Eyeball Collection — stacks on every camp/kill
+            row3=8135,        # Treasure Hunter
+            secondary="Sorcery",
+            sec1=8210,        # Transcendence
+            sec2=8236,        # Gathering Storm
+            shards=["AD", "AH", "Armor"],
+            why={
+                "keystone": "Dark Harvest — every kill/assist stacks it, proc on low-HP enemies; by mid game your Q one-shots isolated targets",
+                "row1":     "Sudden Impact — E leap gives lethality + magic pen on landing, amplifies your burst every dive",
+                "row2":     "Eyeball Collection — stacks on jungle camps too, permanent AD that compounds through the game",
+                "row3":     "Treasure Hunter — first kill per bounty tier = faster lethality items",
+                "secondary":"Sorcery for haste and late scaling",
+                "sec1":     "Transcendence — AH overflow → AD, more Q casts per fight",
+                "sec2":     "Gathering Storm — free AD scaling for late games where teams group up",
+                "shards":   "AD for Q burst, AH for more abilities, Armor vs physical junglers",
+            }
+        ),
+        dict(
+            name="Electrocute (Early burst)",
+            scenario="Lane-heavy game or snowball comp — need burst damage early before Dark Harvest stacks",
+            conditions=["late_game_enemy"],
+            anti=[],
+            primary="Domination",
+            keystone=8112,    # Electrocute
+            row1=8143,        # Sudden Impact
+            row2=8138,        # Eyeball Collection
+            row3=8135,        # Treasure Hunter
+            secondary="Sorcery",
+            sec1=8210,        # Transcendence
+            sec2=8237,        # Scorch
+            shards=["AD", "AH", "Armor"],
+            why={
+                "keystone": "Electrocute — Q-E-auto procs it instantly, spikes harder at level 6 first gank than Dark Harvest",
+                "row1":     "Sudden Impact — lethality + magic pen on E leap, identical to Dark Harvest page",
+                "row2":     "Eyeball Collection — permanent AD from kills, less dependent on low-HP procs than Dark Harvest",
+                "row3":     "Treasure Hunter — gold advantage from early kills accelerates lethality items",
+                "secondary":"Sorcery for early bonus damage",
+                "sec1":     "Transcendence — AH for more Q resets in skirmishes",
+                "sec2":     "Scorch — chip damage on Q poke between ganks, punishes enemies who don't back",
+                "shards":   "AD for early Q damage, AH for rotations, Armor vs AD lanes",
+            }
+        ),
+        dict(
+            name="Phase Rush (vs heavy CC)",
+            scenario="Enemy has hard CC that stops your E escape (Warwick, Nautilus, Lissandra)",
+            conditions=["heavy_cc_enemy"],
+            anti=[],
+            primary="Sorcery",
+            keystone=8230,    # Phase Rush
+            row1=8226,        # Manaflow Band
+            row2=8210,        # Transcendence
+            row3=8236,        # Gathering Storm
+            secondary="Domination",
+            sec1=8143,        # Sudden Impact
+            sec2=8135,        # Treasure Hunter
+            shards=["AD", "AH", "Armor"],
+            why={
+                "keystone": "Phase Rush — Q-auto-E procs it, gives 30-40% MS to burst and disengage before CC lands",
+                "row1":     "Manaflow Band — extended games need mana; CC comps drag fights longer",
+                "row2":     "Transcendence — AH for more Q rotations when you can't all-in freely",
+                "row3":     "Gathering Storm — AD scaling for safer late-game play vs CC-heavy comps",
+                "secondary":"Domination for lethality on engages",
+                "sec1":     "Sudden Impact — E leap lethality still procs even on Phase Rush page",
+                "sec2":     "Treasure Hunter — item spike needed faster since early game is harder",
+                "shards":   "AD for burst, AH for rotations, Armor vs physical CC engagers",
+            }
+        ),
+    ],
+
+    "Diana": [
+        dict(
+            name="Electrocute (Standard burst)",
+            scenario="Default — Q-R in, passive procs Electrocute, burst squishies",
+            conditions=["always"],
+            anti=["heavy_cc_enemy"],
+            primary="Domination",
+            keystone=8112,    # Electrocute
+            row1=8143,        # Sudden Impact — E dash procs it
+            row2=8138,        # Eyeball Collection
+            row3=8135,        # Treasure Hunter
+            secondary="Sorcery",
+            sec1=8210,        # Transcendence
+            sec2=8236,        # Gathering Storm
+            shards=["AP", "AP", "Armor"],
+            why={
+                "keystone": "Electrocute — passive 3-hit lines up with Q-auto-R, one-shots squishies on first back-reset",
+                "row1":     "Sudden Impact — dash into target procs magic pen, amplifies your whole burst rotation",
+                "row2":     "Eyeball Collection — stacks on kills, permanent AP that compounds through the game",
+                "row3":     "Treasure Hunter — gold on first kill per bounty tier = faster item spike",
+                "secondary":"Sorcery for CDR and late-game AP",
+                "sec1":     "Transcendence — AH overflow → AP, more R casts per fight",
+                "sec2":     "Gathering Storm — free AP scaling for late dives, W range hurts more each minute",
+                "shards":   "Double AP for burst damage, Armor vs physical junglers/top",
+            }
+        ),
+        dict(
+            name="Dark Harvest (Snowball/Late)",
+            scenario="Enemy has tanks or game expected to go late — scales harder, stacks on jungle camps",
+            conditions=["late_game_enemy"],
+            anti=[],
+            primary="Domination",
+            keystone=8128,    # Dark Harvest
+            row1=8143,        # Sudden Impact
+            row2=8138,        # Eyeball Collection
+            row3=8135,        # Treasure Hunter
+            secondary="Sorcery",
+            sec1=8210,        # Transcendence
+            sec2=8236,        # Gathering Storm
+            shards=["AP", "AP", "Armor"],
+            why={
+                "keystone": "Dark Harvest — stacks on kills and low-HP enemies, by mid game your R one-shots without full combo",
+                "row1":     "Sudden Impact — magic pen on every engage, synergizes with Dark Harvest burst",
+                "row2":     "Eyeball Collection — stacks faster in jungle with camp kills",
+                "row3":     "Treasure Hunter — accelerate item spike for faster Rabadon's",
+                "secondary":"Sorcery for scaling AP",
+                "sec1":     "Transcendence — AH overflow → AP, more R casts in teamfights",
+                "sec2":     "Gathering Storm — AP ramp for late-game dives when enemy tanks are stacking MR",
+                "shards":   "Double AP for burst, Armor vs physical damage",
+            }
+        ),
+        dict(
+            name="Phase Rush (vs heavy CC)",
+            scenario="Enemy has CC chain (Rammus, Lux, Nautilus) — dive in, proc passive, sprint out",
+            conditions=["heavy_cc_enemy"],
+            anti=[],
+            primary="Sorcery",
+            keystone=8230,    # Phase Rush
+            row1=8226,        # Manaflow Band
+            row2=8210,        # Transcendence
+            row3=8236,        # Gathering Storm
+            secondary="Domination",
+            sec1=8143,        # Sudden Impact
+            sec2=8135,        # Treasure Hunter
+            shards=["AP", "AP", "Armor"],
+            why={
+                "keystone": "Phase Rush — Q-auto-R procs it instantly, 30-40% MS lets you dive, burst, and exit before CC lands",
+                "row1":     "Manaflow Band — extended games need mana sustain for repeated dives",
+                "row2":     "Transcendence — more R casts in the long games CC comps drag you into",
+                "row3":     "Gathering Storm — AP scales up for late-game dives when you're playing safer early",
+                "secondary":"Domination for magic pen",
+                "sec1":     "Sudden Impact — dash magic pen still procs on engage even with Phase Rush",
+                "sec2":     "Treasure Hunter — item spike faster since early game will be slower vs CC",
+                "shards":   "Double AP for burst, Armor vs physical CC engagers",
+            }
+        ),
+    ],
+
+    "Kayn": [
+        dict(
+            name="Dark Harvest (Shadow Assassin)",
+            scenario="Default vs squishy/AP-heavy comps — one-shot isolated targets",
+            conditions=["always"],
+            anti=["heavy_cc_enemy"],
+            primary="Domination",
+            keystone=8128,    # Dark Harvest
+            row1=8143,        # Sudden Impact — E wall-pass procs lethality + magic pen
+            row2=8138,        # Eyeball Collection
+            row3=8135,        # Treasure Hunter
+            secondary="Sorcery",
+            sec1=8210,        # Transcendence
+            sec2=8236,        # Gathering Storm
+            shards=["AD", "AH", "Armor"],
+            why={
+                "keystone": "Dark Harvest — stacks on kills and low-HP enemies; Shadow Assassin path amplifies burst so Dark Harvest procs faster",
+                "row1":     "Sudden Impact — E wall-pass gives lethality + magic pen on landing, free burst amp on every engage",
+                "row2":     "Eyeball Collection — permanent AD from kills, ramps up through the game",
+                "row3":     "Treasure Hunter — gold on first kill per bounty tier = faster lethality items",
+                "secondary":"Sorcery for haste and late scaling",
+                "sec1":     "Transcendence — AH overflow → AD, more Q/E rotations",
+                "sec2":     "Gathering Storm — free AD for late games where you can't end early",
+                "shards":   "AD for burst, AH for rotations, Armor vs physical junglers",
+            }
+        ),
+        dict(
+            name="Conqueror (Rhaast)",
+            scenario="Enemy has 2+ tanks or bruisers — go Rhaast, sustain through fights",
+            conditions=["late_game_enemy"],
+            anti=[],
+            primary="Precision",
+            keystone=8010,    # Conqueror
+            row1=9101,        # Absorb Life
+            row2=9103,        # Legend: Bloodline
+            row3=8299,        # Last Stand — lower HP = more damage, Rhaast heals back up
+            secondary="Resolve",
+            sec1=8473,        # Bone Plating
+            sec2=8453,        # Revitalize — amplifies Rhaast passive heals
+            shards=["AD", "AH", "Armor"],
+            why={
+                "keystone": "Conqueror — stacks in sustained fights, converts to healing at max stacks; Rhaast needs extended combat to proc his passive heal",
+                "row1":     "Absorb Life — heals on minion/monster kills, sustain during jungle clear and extended fights",
+                "row2":     "Legend: Bloodline — lifesteal stacks up permanently, amplifies Rhaast's already strong healing",
+                "row3":     "Last Stand — Rhaast heals back up in fights, so you spend more time at low HP where Last Stand fires",
+                "secondary":"Resolve for durability in extended fights",
+                "sec1":     "Bone Plating — reduces burst in the first exchange before Conqueror stacks up",
+                "sec2":     "Revitalize — amplifies Rhaast passive heals and Conqueror healing",
+                "shards":   "AD for damage, AH for more Q healing procs, Armor vs physical lanes",
+            }
+        ),
+        dict(
+            name="Phase Rush (vs heavy CC)",
+            scenario="Enemy has hard CC that stops your E escape (Warwick R, Nautilus, Vi)",
+            conditions=["heavy_cc_enemy"],
+            anti=[],
+            primary="Sorcery",
+            keystone=8230,    # Phase Rush
+            row1=8226,        # Manaflow Band
+            row2=8210,        # Transcendence
+            row3=8236,        # Gathering Storm
+            secondary="Domination",
+            sec1=8143,        # Sudden Impact
+            sec2=8135,        # Treasure Hunter
+            shards=["AD", "AH", "Armor"],
+            why={
+                "keystone": "Phase Rush — Q-auto-E procs it, 30-40% MS lets you burst and disengage before CC pins you",
+                "row1":     "Manaflow Band — longer fights from CC comps drain mana; passive regen keeps you going",
+                "row2":     "Transcendence — AH for more Q/E uses when you can't dive freely",
+                "row3":     "Gathering Storm — AD scaling for safer late-game play vs CC-heavy comps",
+                "secondary":"Domination for burst damage on engages",
+                "sec1":     "Sudden Impact — E wall-pass lethality still procs even on Phase Rush page",
+                "sec2":     "Treasure Hunter — item spike needed faster since early game is harder vs CC",
+                "shards":   "AD for burst, AH for rotations, Armor vs physical CC engagers",
+            }
+        ),
+    ],
+
     "Milio": [
         dict(
             name="Summon Aery (Standard)",
@@ -392,7 +732,30 @@ def build_rune_context(ally_comp: dict, enemy_comp: dict) -> dict:
     }
 
 
+_RUNE_ALIASES = {
+    "kha'zix": "Khazix", "khazix": "Khazix",
+    "wukong": "MonkeyKing", "monkeyking": "MonkeyKing",
+    "nunu & willump": "Nunu",
+    "lee sin": "LeeSin",
+    "tahm kench": "TahmKench",
+    "twisted fate": "TwistedFate",
+    "master yi": "MasterYi",
+    "kai'sa": "Kaisa",
+    "kog'maw": "KogMaw",
+    "bel'veth": "Belveth",
+    "k'sante": "KSante",
+    "cho'gath": "Chogath",
+    "vel'koz": "Velkoz",
+    "rek'sai": "RekSai",
+}
+
+
+def _normalize_champ(name: str) -> str:
+    return _RUNE_ALIASES.get(name.lower().strip(), name)
+
+
 def pick_rune_page(champion: str, ctx: dict) -> dict | None:
+    champion = _normalize_champ(champion)
     pages = RUNE_PAGES.get(champion, [])
     for page in pages:
         if any(ctx.get(a) for a in page["anti"]):
@@ -454,6 +817,7 @@ def print_rune_page(page: dict, champion: str):
 
 def print_all_pages(champion: str):
     """Show all available pages for reference."""
+    champion = _normalize_champ(champion)
     pages = RUNE_PAGES.get(champion, [])
     if not pages:
         console.print(f"[yellow]No rune pages defined for {champion}.[/yellow]")
@@ -576,7 +940,7 @@ def main():
     print_rune_page(page, my_champ)
 
     # Show other available pages as reference
-    other_pages = [p for p in RUNE_PAGES.get(my_champ, []) if p["name"] != page["name"]]
+    other_pages = [p for p in RUNE_PAGES.get(_normalize_champ(my_champ), []) if p["name"] != page["name"]]
     if other_pages:
         console.print()
         t = Table(title="Other available pages", box=box.SIMPLE)

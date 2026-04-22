@@ -59,12 +59,21 @@ def get_db() -> sqlite3.Connection:
             timestamp    INTEGER,
             patch        TEXT,
             queue        INTEGER,
+            double_kills INTEGER DEFAULT 0,
+            triple_kills INTEGER DEFAULT 0,
+            quadra_kills INTEGER DEFAULT 0,
+            penta_kills  INTEGER DEFAULT 0,
             PRIMARY KEY (match_id, puuid)
         )
     """)
     conn.execute("CREATE INDEX IF NOT EXISTS idx_account ON matches(account)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_champion ON matches(champion)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON matches(timestamp)")
+    # Migrate existing DB — add columns if missing
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(matches)")}
+    for col, default in [("double_kills", 0), ("triple_kills", 0), ("quadra_kills", 0), ("penta_kills", 0)]:
+        if col not in existing:
+            conn.execute(f"ALTER TABLE matches ADD COLUMN {col} INTEGER DEFAULT {default}")
     conn.commit()
     return conn
 
@@ -80,14 +89,17 @@ def insert_match(conn: sqlite3.Connection, row: dict):
     conn.execute("""
         INSERT OR IGNORE INTO matches
         (match_id, account, puuid, champion, win, kills, deaths, assists,
-         cs, damage, vision, kp, duration_min, timestamp, patch, queue)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+         cs, damage, vision, kp, duration_min, timestamp, patch, queue,
+         double_kills, triple_kills, quadra_kills, penta_kills)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     """, (
         row["match_id"], row["account"], row["puuid"],
         row["champion"], row["win"],
         row["kills"], row["deaths"], row["assists"],
         row["cs"], row["damage"], row["vision"], row["kp"],
         row["duration_min"], row["timestamp"], row["patch"], row["queue"],
+        row.get("double_kills", 0), row.get("triple_kills", 0),
+        row.get("quadra_kills", 0), row.get("penta_kills", 0),
     ))
 
 
@@ -166,6 +178,10 @@ def fetch_account(account_label: str, conn: sqlite3.Connection):
                     "timestamp":   info["gameCreation"] // 1000,
                     "patch":       patch,
                     "queue":       info.get("queueId", 420),
+                    "double_kills": p.get("doubleKills", 0),
+                    "triple_kills": p.get("tripleKills", 0),
+                    "quadra_kills": p.get("quadraKills", 0),
+                    "penta_kills":  p.get("pentaKills", 0),
                 })
                 conn.commit()
                 time.sleep(0.05)
@@ -196,6 +212,10 @@ def fetch_account(account_label: str, conn: sqlite3.Connection):
                                 "duration_min": round(dur, 1),
                                 "timestamp": info["gameCreation"] // 1000,
                                 "patch": patch, "queue": info.get("queueId", 420),
+                                "double_kills": p.get("doubleKills", 0),
+                                "triple_kills": p.get("tripleKills", 0),
+                                "quadra_kills": p.get("quadraKills", 0),
+                                "penta_kills":  p.get("pentaKills", 0),
                             })
                             conn.commit()
                     except Exception:
@@ -229,6 +249,20 @@ def print_stats(account_label: str | None, conn: sqlite3.Connection):
     wr_c  = "green" if wr >= 55 else ("red" if wr < 45 else "yellow")
     console.print(f"\n[bold]{label}[/bold]  {total} games  [{wr_c}]{wins}W/{total-wins}L  {wr:.1f}% WR[/{wr_c}]  [{first_dt} → {last_dt}]")
 
+    # Multikill totals
+    mk = conn.execute(f"""
+        SELECT SUM(double_kills) as db, SUM(triple_kills) as tr,
+               SUM(quadra_kills) as qd, SUM(penta_kills) as pt
+        FROM matches {where}
+    """).fetchone()
+    mk_parts = []
+    if mk["db"]: mk_parts.append(f"[cyan]{mk['db']}[/cyan] doubles")
+    if mk["tr"]: mk_parts.append(f"[yellow]{mk['tr']}[/yellow] triples")
+    if mk["qd"]: mk_parts.append(f"[magenta]{mk['qd']}[/magenta] quadras")
+    if mk["pt"]: mk_parts.append(f"[bold red]{mk['pt']}[/bold red] pentas")
+    if mk_parts:
+        console.print("  Multikills: " + "  /  ".join(mk_parts))
+
     # Per-champion breakdown
     rows = conn.execute(f"""
         SELECT champion,
@@ -239,7 +273,11 @@ def print_stats(account_label: str | None, conn: sqlite3.Connection):
                AVG(assists) as a,
                AVG(cs) as cs,
                AVG(damage) as dmg,
-               AVG(kp) as kp
+               AVG(kp) as kp,
+               SUM(double_kills) as db,
+               SUM(triple_kills) as tr,
+               SUM(quadra_kills) as qd,
+               SUM(penta_kills) as pt
         FROM matches {where}
         GROUP BY champion
         HAVING g >= 3
@@ -254,16 +292,23 @@ def print_stats(account_label: str | None, conn: sqlite3.Connection):
     t.add_column("Avg CS",    justify="right")
     t.add_column("Avg Dmg",   justify="right")
     t.add_column("Avg KP",    justify="right")
+    t.add_column("Multikills", justify="right")
 
     for r in rows:
         g    = r["g"]
         wr_c2 = "green" if r["w"]/g >= 0.55 else ("red" if r["w"]/g < 0.45 else "yellow")
         d    = r["d"] or 1
         kda  = f"{(r['k'] + r['a']) / d:.2f}"
+        mk_str = ""
+        if r["pt"]: mk_str += f"[bold red]{r['pt']}P[/bold red] "
+        if r["qd"]: mk_str += f"[magenta]{r['qd']}Q[/magenta] "
+        if r["tr"]: mk_str += f"[yellow]{r['tr']}T[/yellow] "
+        if r["db"]: mk_str += f"[cyan]{r['db']}D[/cyan]"
         t.add_row(
             r["champion"], str(g),
             f"[{wr_c2}]{r['w']/g*100:.0f}%[/{wr_c2}]",
             kda, str(int(r["cs"])), f"{int(r['dmg']):,}", f"{r['kp']*100:.0f}%",
+            mk_str.strip() or "—",
         )
 
     console.print(t)
@@ -289,6 +334,60 @@ def print_stats(account_label: str | None, conn: sqlite3.Connection):
 
 
 # ---------------------------------------------------------------------------
+# Backfill multikills for existing rows (double_kills=0 may mean unset)
+# ---------------------------------------------------------------------------
+
+def backfill_multikills(account_label: str | None, conn: sqlite3.Connection):
+    where = f"AND account='{account_label}'" if account_label else ""
+    # Only rows where all multikill cols are 0 AND kills > 0 — likely missing data
+    rows = conn.execute(f"""
+        SELECT match_id, puuid FROM matches
+        WHERE double_kills=0 AND triple_kills=0 AND quadra_kills=0 AND penta_kills=0
+        AND kills >= 2 {where}
+    """).fetchall()
+
+    if not rows:
+        console.print("[green]Nothing to backfill.[/green]")
+        return
+
+    console.print(f"[dim]Backfilling multikills for {len(rows)} games...[/dim]")
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("{task.completed}/{task.total}"),
+        TimeElapsedColumn(),
+        console=console,
+    ) as progress:
+        task = progress.add_task("Backfilling", total=len(rows))
+        for match_id, puuid in rows:
+            try:
+                match = get_match(match_id)
+                p     = extract_participant(match, puuid)
+                if p:
+                    conn.execute("""
+                        UPDATE matches SET
+                            double_kills=?, triple_kills=?, quadra_kills=?, penta_kills=?
+                        WHERE match_id=? AND puuid=?
+                    """, (
+                        p.get("doubleKills", 0), p.get("tripleKills", 0),
+                        p.get("quadraKills", 0), p.get("pentaKills", 0),
+                        match_id, puuid,
+                    ))
+                    conn.commit()
+                time.sleep(0.05)
+            except Exception as e:
+                if "429" in str(e) or "rate" in str(e).lower():
+                    progress.print("[yellow]Rate limited — waiting 70s[/yellow]")
+                    time.sleep(70)
+            finally:
+                progress.advance(task)
+
+    console.print("[green]Backfill complete.[/green]")
+
+
+# ---------------------------------------------------------------------------
 # Export
 # ---------------------------------------------------------------------------
 
@@ -307,7 +406,7 @@ def export_csv(conn: sqlite3.Connection):
 
 def main():
     parser = argparse.ArgumentParser(description="Local match dataset manager")
-    parser.add_argument("command", choices=["fetch", "stats", "export"])
+    parser.add_argument("command", choices=["fetch", "stats", "export", "backfill"])
     parser.add_argument("--account", choices=list(ACCOUNTS.keys()), default=None)
     args = parser.parse_args()
 
@@ -325,6 +424,10 @@ def main():
         print_stats(args.account, conn)
 
     elif args.command == "export":
+        export_csv(conn)
+
+    elif args.command == "backfill":
+        backfill_multikills(args.account, conn)
         export_csv(conn)
 
     conn.close()

@@ -56,6 +56,7 @@ CHAMPS: dict[str, dict] = {
     "Renekton":    dict(cls="fighter",  dmg="physical", hard_cc=True,  soft_cc=False, mobility="med",  scale="early", range="melee",  win_con="engage"),
     "Yorick":      dict(cls="fighter",  dmg="physical", hard_cc=False, soft_cc=True,  mobility="low",  scale="late", range="melee",  win_con="splitpush"),
     "Gangplank":   dict(cls="fighter",  dmg="mixed",    hard_cc=False, soft_cc=True,  mobility="low",  scale="late", range="ranged", win_con="scale"),
+    "Urgot":       dict(cls="fighter",  dmg="physical", hard_cc=True,  soft_cc=True,  mobility="low",  scale="mid",  range="ranged", win_con="teamfight"),
     # Assassins
     "Zed":         dict(cls="assassin", dmg="physical", hard_cc=False, soft_cc=True,  mobility="high", scale="mid",  range="melee",  win_con="pick"),
     "Khazix":      dict(cls="assassin", dmg="physical", hard_cc=False, soft_cc=False, mobility="high", scale="mid",  range="melee",  win_con="pick"),
@@ -75,6 +76,7 @@ CHAMPS: dict[str, dict] = {
     "Viktor":      dict(cls="mage",     dmg="magic",    hard_cc=True,  soft_cc=True,  mobility="low",  scale="late", range="ranged", win_con="teamfight"),
     "Veigar":      dict(cls="mage",     dmg="magic",    hard_cc=True,  soft_cc=False, mobility="low",  scale="late", range="ranged", win_con="scale"),
     "Lux":         dict(cls="mage",     dmg="magic",    hard_cc=True,  soft_cc=False, mobility="low",  scale="mid",  range="ranged", win_con="poke"),
+    "Velkoz":      dict(cls="mage",     dmg="magic",    hard_cc=True,  soft_cc=True,  mobility="low",  scale="late", range="ranged", win_con="poke"),
     "Xerath":      dict(cls="mage",     dmg="magic",    hard_cc=True,  soft_cc=False, mobility="low",  scale="mid",  range="ranged", win_con="poke"),
     "Ziggs":       dict(cls="mage",     dmg="magic",    hard_cc=False, soft_cc=True,  mobility="low",  scale="mid",  range="ranged", win_con="poke"),
     "Zoe":         dict(cls="mage",     dmg="magic",    hard_cc=True,  soft_cc=False, mobility="high", scale="mid",  range="ranged", win_con="pick"),
@@ -179,9 +181,52 @@ CHAMPS: dict[str, dict] = {
 # Comp analysis
 # ---------------------------------------------------------------------------
 
+NAME_ALIASES = {
+    "kha'zix":     "Khazix",
+    "khazix":      "Khazix",
+    "wukong":      "MonkeyKing",
+    "monkeyking":  "MonkeyKing",
+    "nunu":        "Nunu",
+    "nunu & willump": "Nunu",
+    "lee sin":     "LeeSin",
+    "leesin":      "LeeSin",
+    "tahm kench":  "TahmKench",
+    "tahmkench":   "TahmKench",
+    "twisted fate": "TwistedFate",
+    "twistedfate": "TwistedFate",
+    "master yi":   "MasterYi",
+    "masteryi":    "MasterYi",
+    "jarvan iv":   "JarvanIV",
+    "jarvaniv":    "JarvanIV",
+    "kog'maw":     "KogMaw",
+    "kogmaw":      "KogMaw",
+    "aurelion sol": "AurelionSol",
+    "aurelionsol": "AurelionSol",
+    "dr. mundo":   "DrMundo",
+    "drmundo":     "DrMundo",
+    "k'sante":     "KSante",
+    "ksante":      "KSante",
+    "bel'veth":    "Belveth",
+    "belveth":     "Belveth",
+    "cho'gath":    "Chogath",
+    "chogath":     "Chogath",
+    "vel'koz":     "Velkoz",
+    "velkoz":      "Velkoz",
+    "rek'sai":     "RekSai",
+    "reksai":      "RekSai",
+    "kai'sa":      "Kaisa",
+    "kaisa":       "Kaisa",
+    "kog maw":     "KogMaw",
+}
+
+
 def resolve(name: str) -> dict | None:
-    """Case-insensitive champion lookup."""
-    key = next((k for k in CHAMPS if k.lower() == name.lower().strip()), None)
+    """Case-insensitive champion lookup with alias support."""
+    normalized = name.lower().strip()
+    canonical  = NAME_ALIASES.get(normalized, None)
+    if canonical:
+        return (canonical, CHAMPS[canonical]) if canonical in CHAMPS else None
+    key = next((k for k in CHAMPS if k.lower() == normalized), None)
     return (key, CHAMPS[key]) if key else None
 
 
