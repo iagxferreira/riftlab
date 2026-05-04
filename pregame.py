@@ -28,6 +28,7 @@ from comp_check import (
 from build_advisor import fetch_live_data, aggregate_threats, get_adaptive_recommendations, print_enemy_read, print_recommendations
 from runes import build_rune_context, pick_rune_page, print_rune_page
 from champ_select import print_champion_pick
+from champion_loader import get_bans, resolve_name
 
 load_dotenv()
 console = Console()
@@ -366,86 +367,29 @@ def generate_loading_tips(
 
 
 # ---------------------------------------------------------------------------
-# Ban recommendations
+# Ban recommendations — loaded from data/champions/<ChampName>.json
 # ---------------------------------------------------------------------------
 
-# (champion, reason, threat_type)
-# threat_type: "rakan_counter" | "lane_bully" | "broken" | "snowball"
-RAKAN_COUNTERS = {
-    "Nautilus":  ("Hard-engages over your W, chains you into his team before you can act",         "rakan_counter"),
-    "Leona":     ("Burst CC at level 2 kills you before Xayah/Jinx can follow up",                 "rakan_counter"),
-    "Blitzcrank":("Hook pulls your ADC out of your W shield range instantly",                      "rakan_counter"),
-    "Lux":       ("E root interrupts mid-R, Q snare cancels your engage window",                   "rakan_counter"),
-    "Morgana":   ("Black Shield makes your W useless on the enemy ADC for 5 seconds",              "rakan_counter"),
-    "Mel":       ("Reflects your W damage back — punishes aggressive Rakan plays",                 "rakan_counter"),
-    "Zilean":    ("Double bomb + ult completely nullifies your all-in",                            "rakan_counter"),
-    "Janna":     ("Ult knocks your team away mid-engage every time",                               "rakan_counter"),
-    "Thresh":    ("Lantern gives ADC free escape from your R; hook punishes your engage timing",   "rakan_counter"),
-}
-
-LANE_BULLIES = {
-    "Caitlyn":   ("Outranges Jinx/Xayah, zone them under tower before you hit 6",                 "lane_bully"),
-    "Draven":    ("Kills your ADC at level 1 trade before you have items",                        "lane_bully"),
-    "Miss Fortune":("Bullet Time through your team before you can R out",                         "lane_bully"),
-}
-
-BROKEN_OR_SNOWBALL = {
-    "Zed":       ("If fed he one-shots your ADC before you can W — hard to protect against",      "snowball"),
-    "Katarina":  ("Resets through your R knockup — hard to CC long enough to kill her",           "snowball"),
-    "Shaco":     ("Level 2 invade kills Rakan instantly; boxes interrupt your R mid-cast",        "snowball"),
-    "Twitch":    ("Invisible ADC with stealth resets — your W can't save what you can't see",     "snowball"),
-    "Vayne":     ("True damage shreds your frontline late; invisible E makes her hard to peel off","snowball"),
-}
-
-KHAZIX_COUNTERS = {
-    "Warwick":    ("Sniffs you out at low HP and chains you — can't escape once he locks on",          "khazix_counter"),
-    "Rammus":     ("Thornmail + taunt reflects your physical burst back; you can't isolate him",       "khazix_counter"),
-    "Malphite":   ("High armor, AoE engage — hard to isolate squishies with him in the way",           "khazix_counter"),
-    "Vi":         ("Her R locks you in place — you can't E away from her ult",                         "khazix_counter"),
-    "Lissandra":  ("Self-ult or ally CC freeze denies your burst window completely",                    "khazix_counter"),
-    "Jax":        ("Counterstrike dodges your Q burst, then kills you in a sustained fight",            "khazix_counter"),
-    "Trundle":    ("Steals your AD/armor — your burst literally gets weaker as the fight goes on",      "khazix_counter"),
-}
-
-DIANA_COUNTERS = {
-    "Lissandra":  ("Her self-ult or freeze CC stops your R engage cold",                               "diana_counter"),
-    "Galio":      ("Taunt into his passive burst; his ult counters your whole team dive",               "diana_counter"),
-    "Kassadin":   ("Outscales you and silences your Q approach window",                                 "diana_counter"),
-    "Zed":        ("Burst you before you can R after landing; death mark ignores your engage",          "diana_counter"),
-}
-
-ALL_BAN_REASONS = {**RAKAN_COUNTERS, **LANE_BULLIES, **BROKEN_OR_SNOWBALL, **KHAZIX_COUNTERS, **DIANA_COUNTERS}
-
-
 def recommend_bans(my_champ: str, recent_form: list[dict]) -> list[tuple[str, str, str]]:
-    """Return top 5 ban suggestions as (champion, reason, type)."""
-    champ_lower = my_champ.lower().replace("'", "").replace(" ", "")
-    bans = []
+    """Return top 5 ban suggestions as (champion, reason, type). Loaded from champion JSON."""
+    canonical = resolve_name(my_champ) or my_champ
+    bans_data = get_bans(canonical)
 
-    if champ_lower in ("khazix",):
-        priority = ["Warwick", "Rammus", "Vi", "Lissandra", "Jax"]
-        for champ, (reason, typ) in KHAZIX_COUNTERS.items():
-            bans.append((champ, reason, typ))
-        for champ, (reason, typ) in BROKEN_OR_SNOWBALL.items():
-            bans.append((champ, reason, typ))
-    elif champ_lower in ("diana",):
-        priority = ["Lissandra", "Zed", "Galio", "Kassadin", "Shaco"]
-        for champ, (reason, typ) in DIANA_COUNTERS.items():
-            bans.append((champ, reason, typ))
-        for champ, (reason, typ) in BROKEN_OR_SNOWBALL.items():
-            bans.append((champ, reason, typ))
-    else:
-        # Default: Rakan
-        priority = ["Nautilus", "Morgana", "Mel", "Blitzcrank", "Shaco", "Zed", "Leona", "Lux"]
-        for champ, (reason, typ) in RAKAN_COUNTERS.items():
-            bans.append((champ, reason, typ))
-        for champ, (reason, typ) in BROKEN_OR_SNOWBALL.items():
-            bans.append((champ, reason, typ))
-        for champ, (reason, typ) in LANE_BULLIES.items():
-            bans.append((champ, reason, typ))
+    if not bans_data:
+        return []
 
-    ordered = sorted(bans, key=lambda x: priority.index(x[0]) if x[0] in priority else 99)
-    return ordered[:5]
+    bans = [(champ, info["reason"], info["type"]) for champ, info in bans_data.items()]
+
+    # Sort: put entries whose type matches <champion>_counter first, then others
+    champ_key = canonical.lower().replace("'", "")
+    def sort_key(entry):
+        _, _, typ = entry
+        if f"{champ_key}_counter" in typ or typ in ("rakan_counter", "lane_bully"):
+            return 0
+        return 1
+
+    bans.sort(key=sort_key)
+    return bans[:5]
 
 
 def print_bans(bans: list[tuple[str, str, str]]):
@@ -455,6 +399,10 @@ def print_bans(bans: list[tuple[str, str, str]]):
         "snowball":       "[magenta]Snowball threat[/magenta]",
         "khazix_counter": "[red]Kha'Zix counter[/red]",
         "diana_counter":  "[red]Diana counter[/red]",
+        "ekko_counter":   "[red]Ekko counter[/red]",
+        "kayn_counter":   "[red]Kayn counter[/red]",
+        "zed_counter":    "[red]Zed counter[/red]",
+        "akali_counter":  "[red]Akali counter[/red]",
     }
 
     t = Table(title="Ban Recommendations", box=box.ROUNDED)

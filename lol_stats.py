@@ -1,6 +1,6 @@
 """
-lol_stats.py — LoL rank & performance tracker for BR accounts.
-Accounts: OtherName#TAG (lab), GameName#TAG (main)
+lol_stats.py — LoL rank & performance tracker.
+Accounts loaded from accounts.json — add/rename freely.
 """
 
 import os
@@ -20,16 +20,42 @@ load_dotenv()
 console = Console()
 
 API_KEY = os.getenv("RIOT_API_KEY", "")
-REGION = os.getenv("REGION", "br1")
-ROUTING = os.getenv("REGION_ROUTING", "americas")
 
-ACCOUNTS = {
-    "lab":  os.getenv("ACCOUNT_LAB",  "OtherName#TAG"),
-    "main": os.getenv("ACCOUNT_MAIN", "GameName#TAG"),
-}
+# ---------------------------------------------------------------------------
+# Account loading — edit accounts.json to add/rename/change region
+# ---------------------------------------------------------------------------
 
-BASE_ACCOUNT = f"https://{ROUTING}.api.riotgames.com"
+def _load_accounts() -> dict:
+    path = Path(__file__).parent / "accounts.json"
+    if path.exists():
+        with open(path) as f:
+            return json.load(f)
+    # fallback: env vars (legacy)
+    return {
+        "main": {"riot_id": os.getenv("ACCOUNT_MAIN", ""), "region": "br1", "routing": "americas"},
+        "lab":  {"riot_id": os.getenv("ACCOUNT_LAB",  ""), "region": "br1", "routing": "americas"},
+    }
+
+_ACCOUNTS_RAW: dict = _load_accounts()
+
+# ACCOUNTS maps label → "GameName#TAG" (used throughout codebase)
+ACCOUNTS: dict[str, str] = {label: data["riot_id"] for label, data in _ACCOUNTS_RAW.items()}
+
+# Default region/routing from first account (used for module-level URL constants)
+_first = next(iter(_ACCOUNTS_RAW.values()), {})
+REGION  = _first.get("region",  os.getenv("REGION",          "br1"))
+ROUTING = _first.get("routing", os.getenv("REGION_ROUTING",  "americas"))
+
+BASE_ACCOUNT  = f"https://{ROUTING}.api.riotgames.com"
 BASE_SUMMONER = f"https://{REGION}.api.riotgames.com"
+
+
+def get_account_urls(label: str) -> tuple[str, str]:
+    """Return (BASE_ACCOUNT, BASE_SUMMONER) for a specific account label."""
+    data    = _ACCOUNTS_RAW.get(label, _first)
+    region  = data.get("region",  REGION)
+    routing = data.get("routing", ROUTING)
+    return f"https://{routing}.api.riotgames.com", f"https://{region}.api.riotgames.com"
 
 FOCUS_CHAMPS = {"Cassiopeia", "Syndra"}
 

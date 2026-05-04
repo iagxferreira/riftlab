@@ -14,10 +14,19 @@ from rich.panel import Panel
 from rich.table import Table
 from rich import box
 
+from champion_loader import get_pool_names, get_champion, score_champ_select
+
 console = Console()
 
 # ---------------------------------------------------------------------------
 # Champion pool — add your mains here
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Champion pool — display metadata only.
+# Scoring (favor/against) is data-driven from data/champions/<ChampName>.json.
+# Add a champion here when you want it to appear in suggestions; add its JSON
+# to data/champions/ with a champ_select block to control when it scores well.
 # ---------------------------------------------------------------------------
 
 POOL = {
@@ -35,25 +44,7 @@ POOL = {
             "ADC is Vayne/Ezreal (peel-dependent, not fighting)",
             "Enemy has heavy poke that punishes your short range",
         ],
-        # Conditions that FAVOR Rakan
-        favor=lambda ally, enemy, ctx: sum([
-            ctx.get("fighting_adc", False),
-            not ctx.get("peel_adc", False),
-            ally["primary_win_con"] in ("engage", "teamfight"),
-            len(ally["frontline"]) <= 1,         # team needs you to be the engage
-            enemy["primary_win_con"] not in ("poke",),
-            "Morgana" not in [n for n, _ in enemy["resolved"]],
-        ]),
-        # Conditions that DISFAVOR Rakan
-        against=lambda ally, enemy, ctx: sum([
-            "Morgana"   in [n for n, _ in enemy["resolved"]],
-            "Nautilus"  in [n for n, _ in enemy["resolved"]],
-            "Leona"     in [n for n, _ in enemy["resolved"]],
-            ctx.get("peel_adc", False) and not ctx.get("fighting_adc", False),
-            enemy["primary_win_con"] == "poke",
-        ]),
     ),
-
     "Milio": dict(
         role="Enchanter/peel support",
         strengths=[
@@ -69,22 +60,7 @@ POOL = {
             "Fighting ADC in lane (Milio doesn't enable their aggression as well)",
             "Enemy has no CC to cleanse — R loses value",
         ],
-        favor=lambda ally, enemy, ctx: sum([
-            ctx.get("peel_adc", False),
-            ctx.get("has_assassin", False),
-            ctx.get("ally_ap_carry", False),
-            ctx.get("heavy_cc_enemy", False),         # R cleanse is impactful
-            "Morgana" in [n for n, _ in enemy["resolved"]],
-            ally["primary_win_con"] in ("scale", "poke"),
-            len(ally["frontline"]) >= 2,              # team already has engage
-        ]),
-        against=lambda ally, enemy, ctx: sum([
-            ctx.get("fighting_adc", False) and not ctx.get("peel_adc", False),
-            len(ally["frontline"]) == 0 and ally["primary_win_con"] not in ("engage",),
-            enemy["primary_win_con"] == "engage" and not ctx.get("heavy_cc_enemy", False),
-        ]),
     ),
-
     "Diana": dict(
         role="AP assassin jungler",
         strengths=[
@@ -98,22 +74,7 @@ POOL = {
             "Enemy has Zed/Talon — you have no escape after committing",
             "Team already has 2 AP sources — redundant damage",
         ],
-        favor=lambda ally, enemy, ctx: sum([
-            ctx.get("heavy_cc_enemy", False),                         # her engage beats CC comps
-            len(ally["frontline"]) == 0,                              # team needs an engage
-            enemy["primary_win_con"] in ("teamfight", "scale"),       # punish grouped fights
-            len(enemy["assassins"]) == 0,                             # safe to dive
-            enemy["magic_dmg"] <= 1,                                  # not overkill on AP
-            len([c for _, c in enemy["resolved"]
-                 if c.get("mobility") == "low"]) >= 2,                # immobile targets = easy landing
-        ]),
-        against=lambda ally, enemy, ctx: sum([
-            len(enemy["assassins"]) >= 2,                             # getting blown up pre-engage
-            enemy["primary_win_con"] == "poke",                       # can't close the gap
-            ally["magic_dmg"] >= 3,                                   # team already AP-heavy
-        ]),
     ),
-
     "Ekko": dict(
         role="AP assassin (mid/jungle)",
         strengths=[
@@ -128,34 +89,18 @@ POOL = {
             "Heavy poke comp keeps you out of range to proc passive",
             "Team already has 2+ assassins — redundant damage type",
         ],
-        favor=lambda ally, enemy, ctx: sum([
-            len(enemy["frontline"]) >= 2,                          # tanks = free passive procs
-            enemy["primary_win_con"] in ("scale", "teamfight"),    # punish grouped enemies with W
-            ally["primary_win_con"] in ("pick", "engage"),         # team wants picks / can follow
-            not ctx.get("heavy_cc_enemy", False),                  # safe to dive without CC chain
-            enemy["phys_dmg"] >= 3,                                # armor stacking enemy → Ekko magic bypasses
-            len([c for _, c in enemy["resolved"]
-                 if c.get("mobility") == "low"]) >= 2,             # immobile targets = easy W lands
-        ]),
-        against=lambda ally, enemy, ctx: sum([
-            ctx.get("heavy_cc_enemy", False),                      # CC before R = dead
-            enemy["primary_win_con"] == "poke",                    # can't approach safely
-            len(enemy["assassins"]) >= 2,                          # getting assassinated before R
-        ]),
     ),
 }
 
 
 # ---------------------------------------------------------------------------
-# Scoring
+# Scoring — uses champion JSON champ_select conditions via champion_loader
 # ---------------------------------------------------------------------------
 
 def score_champion(champ: str, ally_comp: dict, enemy_comp: dict, ctx: dict) -> dict:
-    entry   = POOL[champ]
-    favor   = entry["favor"](ally_comp, enemy_comp, ctx)
-    against = entry["against"](ally_comp, enemy_comp, ctx)
-    score   = favor - against * 1.5   # disfavor weighted heavier
-    return {"champ": champ, "score": score, "favor": favor, "against": against}
+    """Score a champion using favor/against condition strings from its JSON."""
+    score = score_champ_select(champ, ally_comp, enemy_comp, ctx)
+    return {"champ": champ, "score": score}
 
 
 def pick_champion(ally_comp: dict, enemy_comp: dict, ctx: dict) -> tuple[str, list[dict]]:
