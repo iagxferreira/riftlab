@@ -3,13 +3,13 @@ build_advisor.py — Adaptive build recommendations based on live game + enemy i
 
 Usage:
   # Champion select — predict enemy builds from champion + runes
-  python build_advisor.py --live main
+  python -m riftlab.advisors.build_advisor --live main
 
   # Mid-game — feed in actual enemy items you can see
-  python build_advisor.py --live main --enemy-items "Caitlyn:Kraken+BT,Nautilus:Sunfire+Thornmail"
+  python -m riftlab.advisors.build_advisor --live main --enemy-items "Caitlyn:Kraken+BT,Nautilus:Sunfire+Thornmail"
 
   # Manual comp (no API needed)
-  python build_advisor.py Rakan --ally "Sett,Ambessa,Fizz,Jinx" --enemy "Volibear,Udyr,Lissandra,Caitlyn,Nautilus"
+  python -m riftlab.advisors.build_advisor Rakan --ally "Sett,Ambessa,Fizz,Jinx" --enemy "Volibear,Udyr,Lissandra,Caitlyn,Nautilus"
 """
 
 import sys
@@ -22,9 +22,9 @@ from rich.table import Table
 from rich.panel import Panel
 from rich import box
 
-from lol_stats import get_account, BASE_SUMMONER, _get, ACCOUNTS, console
-from comp_check import resolve, CHAMPS, champ_name_from_id, _load_champ_id_map
-from champion_loader import get_build_items, eval_build_condition, resolve_name
+from riftlab.riot import get_account, BASE_SUMMONER, _get, ACCOUNTS, console
+from riftlab.advisors.comp_check import resolve, CHAMPS, champ_name_from_id, _load_champ_id_map
+from riftlab.champion_loader import get_build_items, eval_build_condition, resolve_name
 
 load_dotenv()
 

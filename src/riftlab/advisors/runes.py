@@ -5,9 +5,9 @@ Rune page data is stored in data/champions/<ChampName>.json — edit those files
 to add or modify pages. Use champion_loader.get_rune_pages(champ) to access them.
 
 Usage:
-  python runes.py main           # pull from live game
-  python runes.py main --last    # pull from last game
-  python runes.py Rakan --enemy "Nautilus,Caitlyn,Yasuo,Zed,Viktor"  # manual
+  python -m riftlab.advisors.runes main           # pull from live game
+  python -m riftlab.advisors.runes main --last    # pull from last game
+  python -m riftlab.advisors.runes Rakan --enemy "Nautilus,Caitlyn,Yasuo,Zed,Viktor"  # manual
 """
 
 import sys
@@ -22,9 +22,9 @@ from rich.panel import Panel
 from rich.rule import Rule
 from rich import box
 
-from lol_stats import get_account, get_match_ids, get_match, extract_participant, BASE_SUMMONER, _get, ACCOUNTS
-from comp_check import analyze_comp, resolve, champ_name_from_id, _load_champ_id_map
-from champion_loader import get_rune_pages, resolve_name
+from riftlab.riot import get_account, get_match_ids, get_match, extract_participant, BASE_SUMMONER, _get, ACCOUNTS
+from riftlab.advisors.comp_check import analyze_comp, resolve, champ_name_from_id, _load_champ_id_map
+from riftlab.champion_loader import get_rune_pages, resolve_name
 
 load_dotenv()
 console = Console()

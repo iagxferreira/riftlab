@@ -3,8 +3,8 @@ pregame.py — Full loading screen briefing for your current game.
 Run this as soon as champion select ends.
 
 Usage:
-  python pregame.py main
-  python pregame.py lab
+  python -m riftlab.advisors.pregame main
+  python -m riftlab.advisors.pregame lab
 """
 
 import sys
@@ -18,17 +18,17 @@ from rich.panel import Panel
 from rich.rule import Rule
 from rich import box
 
-from lol_stats import get_account, get_match_ids, get_match, extract_participant, BASE_SUMMONER, _get, ACCOUNTS
-from match_cache import get_match_cached, is_excluded
-from comp_check import (
+from riftlab.riot import get_account, get_match_ids, get_match, extract_participant, BASE_SUMMONER, _get, ACCOUNTS
+from riftlab.cache import get_match_cached, is_excluded
+from riftlab.advisors.comp_check import (
     analyze_comp, generate_matchup_insights, recommend_build,
     build_context, champ_name_from_id, _load_champ_id_map,
     resolve, comp_table, print_insights, ACCOUNTS,
 )
-from build_advisor import fetch_live_data, aggregate_threats, get_adaptive_recommendations, print_enemy_read, print_recommendations
-from runes import build_rune_context, pick_rune_page, print_rune_page
-from champ_select import print_champion_pick
-from champion_loader import get_bans, resolve_name
+from riftlab.advisors.build_advisor import fetch_live_data, aggregate_threats, get_adaptive_recommendations, print_enemy_read, print_recommendations
+from riftlab.advisors.runes import build_rune_context, pick_rune_page, print_rune_page
+from riftlab.advisors.champ_select import print_champion_pick
+from riftlab.champion_loader import get_bans, resolve_name
 
 load_dotenv()
 console = Console()

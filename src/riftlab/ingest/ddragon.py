@@ -10,9 +10,9 @@ Downloads:
 No API key required — Data Dragon is a public CDN.
 
 Usage:
-  python ddragon.py fetch          # download everything
-  python ddragon.py fetch --patch 16.8.1   # specific patch
-  python ddragon.py info           # show current cached version
+  python -m riftlab.ingest.ddragon fetch          # download everything
+  python -m riftlab.ingest.ddragon fetch --patch 16.8.1   # specific patch
+  python -m riftlab.ingest.ddragon info           # show current cached version
 """
 
 import json
@@ -20,6 +20,8 @@ import csv
 import time
 import argparse
 from pathlib import Path
+
+from riftlab.paths import DDRAGON_DIR, ROOT
 
 import requests
 from rich.console import Console
@@ -30,7 +32,7 @@ from rich import box
 console = Console()
 
 DDRAGON_BASE = "https://ddragon.leagueoflegends.com"
-CACHE_DIR    = Path("ddragon")
+CACHE_DIR    = DDRAGON_DIR
 IMG_CHAMP    = CACHE_DIR / "img" / "champion"
 IMG_ITEM     = CACHE_DIR / "img" / "item"
 IMG_SPELL    = CACHE_DIR / "img" / "spell"
@@ -120,7 +122,7 @@ def build_champions_records(champions: dict, version: str) -> list[dict]:
             "ad":          stats.get("attackdamage", ""),
             "as":          stats.get("attackspeed", ""),
             "image":       c["image"]["full"],
-            "image_path":  str(IMG_CHAMP / c["image"]["full"]),
+            "image_path":  str((IMG_CHAMP / c["image"]["full"]).relative_to(ROOT)),
             "version":     version,
         })
     return sorted(records, key=lambda x: x["name"])
@@ -204,7 +206,7 @@ def build_items_records(items: dict, version: str) -> list[dict]:
             # Flat stats
             **stat_vals,
             "image":         item["image"]["full"],
-            "image_path":    str(IMG_ITEM / item["image"]["full"]),
+            "image_path":    str((IMG_ITEM / item["image"]["full"]).relative_to(ROOT)),
             "version":       version,
         })
     return sorted(records, key=lambda x: int(x["cost_total"]), reverse=True)
@@ -236,7 +238,7 @@ def export_csv_file(records: list[dict], path: Path):
 def cmd_info():
     version = get_cached_version()
     if not version:
-        console.print("[yellow]No cached data — run: python ddragon.py fetch[/yellow]")
+        console.print("[yellow]No cached data — run: python -m riftlab.ingest.ddragon fetch[/yellow]")
         return
 
     champ_file = CACHE_DIR / "champions.json"

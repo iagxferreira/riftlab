@@ -4,17 +4,17 @@ dataset.py — Fetch ranked games and store them in matches.csv (no database).
 Incremental — skips matches already in the CSV.
 
 Usage:
-  python dataset.py fetch              # fetch all games for both accounts
-  python dataset.py fetch --account main
-  python dataset.py fetch --account lab
-  python dataset.py stats              # print stats from the CSV
-  python dataset.py stats --account main
+  python -m riftlab.ingest.dataset fetch              # fetch all games for both accounts
+  python -m riftlab.ingest.dataset fetch --account main
+  python -m riftlab.ingest.dataset fetch --account lab
+  python -m riftlab.ingest.dataset stats              # print stats from the CSV
+  python -m riftlab.ingest.dataset stats --account main
 """
 
 import csv
 import time
 import argparse
-from pathlib import Path
+from riftlab.paths import MATCHES_CSV
 from datetime import datetime, timezone
 
 from dotenv import load_dotenv
@@ -23,12 +23,12 @@ from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn
 from rich import box
 
-from lol_stats import get_account, get_match_ids, get_match, extract_participant, ACCOUNTS
+from riftlab.riot import get_account, get_match_ids, get_match, extract_participant, ACCOUNTS
 
 load_dotenv()
 console = Console()
 
-CSV_PATH = Path("matches.csv")
+CSV_PATH = MATCHES_CSV
 
 FIELDNAMES = [
     "match_id", "account", "puuid", "champion", "win",

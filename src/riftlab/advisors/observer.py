@@ -3,8 +3,8 @@ observer.py — Live game observer. Runs pregame then fires phase reports
 at ~5 min (early), ~14 min (mid), ~25 min (late).
 
 Usage:
-  python observer.py main
-  python observer.py main --enemy-items "Gnar:Trinity+Steelcaps,Jinx:Kraken"
+  python -m riftlab.advisors.observer main
+  python -m riftlab.advisors.observer main --enemy-items "Gnar:Trinity+Steelcaps,Jinx:Kraken"
 """
 
 import time
@@ -17,20 +17,20 @@ from rich.rule import Rule
 from rich.table import Table
 from rich import box
 
-from lol_stats import get_account, BASE_SUMMONER, _get, ACCOUNTS
-from comp_check import analyze_comp, champ_name_from_id, _load_champ_id_map
-from build_advisor import (
+from riftlab.riot import get_account, BASE_SUMMONER, _get, ACCOUNTS
+from riftlab.advisors.comp_check import analyze_comp, champ_name_from_id, _load_champ_id_map
+from riftlab.advisors.build_advisor import (
     fetch_live_data, aggregate_threats,
     get_adaptive_recommendations, print_recommendations,
     KEYSTONES, HEALING_CHAMPS, SHIELD_CHAMPS,
 )
-from pregame import (
+from riftlab.advisors.pregame import (
     get_recent_form, print_recent_form,
     generate_loading_tips, print_loading_tips,
     print_bans, recommend_bans,
 )
-from champ_select import print_champion_pick
-from runes import build_rune_context, pick_rune_page, print_rune_page
+from riftlab.advisors.champ_select import print_champion_pick
+from riftlab.advisors.runes import build_rune_context, pick_rune_page, print_rune_page
 
 load_dotenv()
 console = Console()
@@ -316,7 +316,7 @@ def main():
     console.print(Rule("[bold]Recent Form[/bold]"))
     print_recent_form(recent_form)
 
-    from comp_check import comp_table
+    from riftlab.advisors.comp_check import comp_table
     console.print(Rule("[bold]Comp Overview[/bold]"))
     console.print(comp_table("Your Team",  ally_comp,  "green"))
     console.print(comp_table("Enemy Team", enemy_comp, "red"))

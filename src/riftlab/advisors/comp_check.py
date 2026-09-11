@@ -2,8 +2,8 @@
 comp_check.py — Analyze your comp vs the enemy comp and get role-specific tips.
 
 Usage:
-  python comp_check.py Rakan --ally "Vayne,Orianna,JarvanIV,Mordekaiser" --enemy "Fizz,Khazix,Tryndamere,Jhin,Nautilus"
-  python comp_check.py --from-last main
+  python -m riftlab.advisors.comp_check Rakan --ally "Vayne,Orianna,JarvanIV,Mordekaiser" --enemy "Fizz,Khazix,Tryndamere,Jhin,Nautilus"
+  python -m riftlab.advisors.comp_check --from-last main
 """
 
 import sys
@@ -17,8 +17,8 @@ from rich.panel import Panel
 from rich.columns import Columns
 from rich import box
 
-from lol_stats import get_account, get_match_ids, get_match, extract_participant, ACCOUNTS, BASE_SUMMONER, _get, console
-from champion_loader import get_comp_data, get_aliases, resolve_name
+from riftlab.riot import get_account, get_match_ids, get_match, extract_participant, ACCOUNTS, BASE_SUMMONER, _get, console
+from riftlab.champion_loader import get_comp_data, get_aliases, resolve_name
 
 load_dotenv()
 
@@ -651,7 +651,7 @@ def comps_from_last_game(account_label: str) -> tuple[str, list[str], list[str]]
     account_str = ACCOUNTS[account_label]
     game_name, tag = account_str.rsplit("#", 1)
 
-    from lol_stats import get_account, get_match_ids, get_match, extract_participant
+    from riftlab.riot import get_account, get_match_ids, get_match, extract_participant
     acct = get_account(game_name, tag)
     puuid = acct["puuid"]
     mid = get_match_ids(puuid, count=1)[0]

@@ -16,7 +16,9 @@ Provides:
 import json
 from pathlib import Path
 
-_DATA_DIR = Path(__file__).parent / "data"
+from riftlab.paths import DATA_DIR
+
+_DATA_DIR = DATA_DIR
 _CHAMPS_DIR = _DATA_DIR / "champions"
 
 # ---------------------------------------------------------------------------

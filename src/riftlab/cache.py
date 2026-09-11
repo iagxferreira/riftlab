@@ -5,29 +5,29 @@ Stores match JSON locally so repeated runs don't re-hit the API.
 Excluded matches are skipped in recent form, playstyle, and last_match.
 
 Usage:
-  python match_cache.py exclude main              # exclude last game
-  python match_cache.py exclude main --note "kat inting"
-  python match_cache.py list                      # show excluded games
-  python match_cache.py clear-excluded            # remove all exclusions
+  python -m riftlab.cache exclude main              # exclude last game
+  python -m riftlab.cache exclude main --note "kat inting"
+  python -m riftlab.cache list                      # show excluded games
+  python -m riftlab.cache clear-excluded            # remove all exclusions
 """
 
 import json
 import sys
 import argparse
 import time
-from pathlib import Path
+from riftlab.paths import MATCH_CACHE
 
 from dotenv import load_dotenv
 from rich.console import Console
 from rich.table import Table
 from rich import box
 
-from lol_stats import get_account, get_match_ids, get_match, ACCOUNTS
+from riftlab.riot import get_account, get_match_ids, get_match, ACCOUNTS
 
 load_dotenv()
 console = Console()
 
-CACHE_FILE = Path(".match_cache.json")
+CACHE_FILE = MATCH_CACHE
 
 
 # ---------------------------------------------------------------------------
@@ -55,7 +55,7 @@ def get_match_cached(match_id: str) -> dict:
     """Return match data from cache, fetching from API if not present."""
     data = _load()
     if match_id not in data["matches"]:
-        from lol_stats import get_match
+        from riftlab.riot import get_match
         data["matches"][match_id] = get_match(match_id)
         _save(data)
         time.sleep(0.05)

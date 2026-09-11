@@ -8,16 +8,16 @@ one has MIN_GAMES observations, but it is not yet called by pregame.py or
 runes.py — recommendations there are still fully rule-based.
 
 Usage:
-  python rl_advisor.py feedback main          # log last game outcome
-  python rl_advisor.py feedback main --match BR1_123456
-  python rl_advisor.py weights                # show learned weights
-  python rl_advisor.py reset                  # wipe learned weights
+  python -m riftlab.rl.bandit feedback main          # log last game outcome
+  python -m riftlab.rl.bandit feedback main --match BR1_123456
+  python -m riftlab.rl.bandit weights                # show learned weights
+  python -m riftlab.rl.bandit reset                  # wipe learned weights
 """
 
 import json
 import argparse
 import time
-from pathlib import Path
+from riftlab.paths import RL_WEIGHTS
 from datetime import datetime
 
 from dotenv import load_dotenv
@@ -26,14 +26,14 @@ from rich.table import Table
 from rich.panel import Panel
 from rich import box
 
-from lol_stats import get_account, get_match_ids, extract_participant, ACCOUNTS
-from match_cache import get_match_cached, is_excluded
-from comp_check import analyze_comp
+from riftlab.riot import get_account, get_match_ids, extract_participant, ACCOUNTS
+from riftlab.cache import get_match_cached, is_excluded
+from riftlab.advisors.comp_check import analyze_comp
 
 load_dotenv()
 console = Console()
 
-WEIGHTS_FILE = Path(".rl_weights.json")
+WEIGHTS_FILE = RL_WEIGHTS
 LEARNING_RATE = 0.2   # how fast to update weights (0=never update, 1=replace)
 MIN_GAMES = 3         # minimum observations before weights influence recommendations
 

@@ -1,6 +1,6 @@
 """
 playstyle.py — Analyze playstyle from match history and suggest champions.
-Usage: python playstyle.py [lab|main] [--games N]
+Usage: python -m riftlab.analysis.playstyle [lab|main] [--games N]
 """
 
 import os
@@ -18,7 +18,7 @@ from rich import box
 
 import requests
 
-from lol_stats import (
+from riftlab.riot import (
     get_account, get_match_ids, get_match, extract_participant,
     ACCOUNTS, BASE_SUMMONER, _get, console,
 )

@@ -1,6 +1,6 @@
 """
 last_match.py — Deep review of your last ranked game with improvement tips.
-Usage: python last_match.py [lab|main]
+Usage: python -m riftlab.analysis.last_match [lab|main]
 """
 
 import os
@@ -14,12 +14,12 @@ from rich.table import Table
 from rich.panel import Panel
 from rich import box
 
-from lol_stats import (
+from riftlab.riot import (
     get_account, get_match_ids, get_match, extract_participant,
     BASE_ACCOUNT, _get, ACCOUNTS, console,
 )
-from match_cache import get_match_cached, is_excluded
-from pregame import get_recent_form, print_tilt_check
+from riftlab.cache import get_match_cached, is_excluded
+from riftlab.advisors.pregame import get_recent_form, print_tilt_check
 
 load_dotenv()
 

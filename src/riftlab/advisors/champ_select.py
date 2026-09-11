@@ -5,8 +5,8 @@ Compares your mains against each other and recommends who to play
 based on ally + enemy comp.
 
 Usage:
-  python champ_select.py main          # live game
-  python champ_select.py main --last   # last game (what should you have played?)
+  python -m riftlab.advisors.champ_select main          # live game
+  python -m riftlab.advisors.champ_select main --last   # last game (what should you have played?)
 """
 
 from rich.console import Console
@@ -14,7 +14,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich import box
 
-from champion_loader import get_pool_names, get_champion, score_champ_select
+from riftlab.champion_loader import get_pool_names, get_champion, score_champ_select
 
 console = Console()
 
@@ -191,12 +191,12 @@ def print_champion_pick(ally_comp: dict, enemy_comp: dict, ctx: dict):
 if __name__ == "__main__":
     import argparse, time
     from dotenv import load_dotenv
-    from lol_stats import get_account, get_match_ids, get_match, extract_participant, ACCOUNTS
-    from comp_check import analyze_comp, champ_name_from_id, _load_champ_id_map
-    from build_advisor import fetch_live_data
-    from lol_stats import BASE_SUMMONER, _get
-    from runes import build_rune_context
-    from match_cache import get_match_cached, is_excluded
+    from riftlab.riot import get_account, get_match_ids, get_match, extract_participant, ACCOUNTS
+    from riftlab.advisors.comp_check import analyze_comp, champ_name_from_id, _load_champ_id_map
+    from riftlab.advisors.build_advisor import fetch_live_data
+    from riftlab.riot import BASE_SUMMONER, _get
+    from riftlab.advisors.runes import build_rune_context
+    from riftlab.cache import get_match_cached, is_excluded
 
     load_dotenv()
 
