@@ -3,10 +3,5 @@
     "riot_id": "GameName#TAG",
     "region": "br1",
     "routing": "americas"
-  },
-  "lab": {
-    "riot_id": "OtherName#TAG",
-    "region": "br1",
-    "routing": "americas"
   }
 }

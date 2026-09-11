@@ -28,10 +28,11 @@ def _load_accounts() -> dict:
     if ACCOUNTS_FILE.exists():
         with open(ACCOUNTS_FILE) as f:
             return json.load(f)
-    # fallback: env vars (legacy)
+    # fallback: env vars
     return {
-        "main": {"riot_id": os.getenv("ACCOUNT_MAIN", ""), "region": "br1", "routing": "americas"},
-        "lab":  {"riot_id": os.getenv("ACCOUNT_LAB",  ""), "region": "br1", "routing": "americas"},
+        "main": {"riot_id": os.getenv("ACCOUNT_MAIN", ""),
+                 "region": os.getenv("REGION", "br1"),
+                 "routing": os.getenv("REGION_ROUTING", "americas")},
     }
 
 _ACCOUNTS_RAW: dict = _load_accounts()
