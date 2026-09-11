@@ -1,8 +1,11 @@
 """
-rl_advisor.py — Contextual bandit feedback loop for pregame recommendations.
+rl_advisor.py — Contextual-bandit prototype for keystone rune recommendations.
 
-After each game, logs what was recommended vs the outcome and updates weights.
-Recommendations in pregame improve over time as you play more games.
+After each game, logs (champion, comp context, keystone actually used, shaped
+reward) and updates a per-(champion, context, keystone) score with an
+exponential moving average. rank_actions() can re-rank candidate actions once
+one has MIN_GAMES observations, but it is not yet called by pregame.py or
+runes.py — recommendations there are still fully rule-based.
 
 Usage:
   python rl_advisor.py feedback main          # log last game outcome
@@ -133,7 +136,7 @@ def get_weight(champion: str, ctx_key: str, action: str) -> tuple[float, int]:
 
 
 # ---------------------------------------------------------------------------
-# Public API — used by pregame/runes for weighted recommendations
+# Public API — intended for pregame/runes weighted recommendations (not wired in yet)
 # ---------------------------------------------------------------------------
 
 def rank_actions(champion: str, ctx_key: str, actions: list[str]) -> list[tuple[str, float, int]]:
