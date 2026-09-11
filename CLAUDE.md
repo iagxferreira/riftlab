@@ -36,7 +36,7 @@ Dependencies are managed with uv (`pyproject.toml` + `uv.lock`): add them with `
 ## Gotchas
 
 - Local file locations (accounts.json, matches.csv, the match cache) come from `riftlab/paths.py`, anchored at the project root. Don't hardcode cwd-relative paths.
-- The bandit has no weights file: it's rebuilt from `.match_cache.json` on every run. Every participant of every cached match is a sample, so the cache's other-player games are its training data. Don't prune them.
+- The bandit has no weights file: it's rebuilt from `.match_cache.json` on every run. Every participant of every cached match is a sample, so all 10 players in each cached game are training data, not just the account owner.
 - Bandit context uses Data Dragon (champion tags + attack/magic ratings) fetched live; tests use synthetic `StaticData` and need no network.
 - The replay evaluation currently shows no detectable edge for the bandit's recommendations (see README). Don't describe it as improving outcomes.
 - Riot-sourced data (`matches.csv`, `.match_cache.json`) is gitignored and was purged from history. Regenerate it locally and never commit it.

@@ -122,10 +122,10 @@ flowchart LR
 
 ### Dataset (generated locally, not committed)
 
-`matches.csv` is built by `ingest/dataset.py` and is gitignored, because it contains Riot API data and player IDs, so every user regenerates their own. The first snapshot (April 2026, when the project still tracked two accounts) had:
+`matches.csv` is built by `ingest/dataset.py` and is gitignored, because it contains Riot API data and player IDs, so every user regenerates their own. The current snapshot has:
 
-- 1,038 ranked Solo/Duo games (859 on the account now tracked as `main`, 179 on a second account that's no longer tracked), from 2024-10-07 to 2026-04-27, across 127 champions.
-- Columns: `match_id, account, puuid, champion, win, kills, deaths, assists, cs, damage, vision, kp, duration_min, timestamp, patch, queue`, plus `double/triple/quadra/penta_kills` on newer rows.
+- 810 ranked Solo/Duo games (405 wins, 405 losses), from 2024-12-11 to 2026-06-30, across 112 champions. The API listed 852 games; the other 42 were all remakes under 5 minutes.
+- Columns: `match_id, account, puuid, champion, win, kills, deaths, assists, cs, damage, vision, kp, duration_min, timestamp, patch, queue, double_kills, triple_kills, quadra_kills, penta_kills`.
 - Games under 5 minutes (remakes) are dropped.
 
 The bandit learns from a different local source: the raw match cache (`.match_cache.json`), which stores full match payloads with all 10 players' champions, keystones and stats. See [Reinforcement learning](#reinforcement-learning).
@@ -161,31 +161,31 @@ The question is: *given my champion and both team compositions, which keystone r
 | **Context / state** | Five binary flags from the player's point of view, built from the Data Dragon classes and attack/magic ratings of all 10 champions: `enemy_ap_heavy` (3+ enemies rated more magic than attack), `enemy_ad_heavy` (the reverse), `enemy_assassin`, `enemy_tanky` (2+ enemies whose primary class is Tank), `ally_no_frontline` (no Tank/Fighter teammate). Up to 32 contexts; estimates are kept separately per champion. |
 | **Action** | The keystone rune the player took (17 possible). |
 | **Reward** | `(±1 for win/loss + clip(0.1 × (teammates' mean deaths − deaths), ±0.25) + clip(0.5 × (KP − teammates' mean KP), ±0.25)) / 1.5`, so it lies in [-1, 1]. Deaths and KP are measured against teammates in the same game, so it needs no player history and can't leak future games. |
-| **Environment** | None live. Learning is **offline** from logged games: every participant of every cached ranked match is one sample. That includes players from my games and from my teammates' and opponents' recent games, which pools decisions across thousands of players instead of just mine. Remakes (< 10 min) and manually excluded matches are skipped. |
+| **Environment** | None live. Learning is **offline** from logged games: every participant of every cached ranked match is one sample, so all 10 players in each of my cached games count. That pools decisions across thousands of players instead of just mine. Remakes (< 10 min) and manually excluded matches are skipped. |
 | **Learning** | Tabular estimate per (champion, context, keystone): mean reward shrunk toward 0 by 2 pseudo-games, so one lucky game can't dominate. If a context has fewer than 10 games for that champion, the champion-level estimate is used instead. The model is rebuilt from the cache on every run, so the same cache always gives the same result. |
 | **Policy** | `recommend` ranks keystones for a champion and matchup. The greedy choice needs at least 5 games behind it; `--explore` ranks by UCB1 instead, favoring keystones that have been tried less. Nothing acts on it automatically: the output is for a human to read. |
 | **Evaluation** | `evaluate` replays matches in time order: before each match, the model (trained only on earlier matches) makes its greedy recommendation for every participant, then learns from the match. It compares outcomes for players whose keystone matched the recommendation against those whose didn't. |
 
 ### Results on the current cache
 
-From `make rl-summary` and `make rl-evaluate` on the April 2026 cache snapshot (317 cached matches). The cache is being rebuilt, so re-running will give different numbers:
+From `make rl-summary` and `make rl-evaluate` on the current cache: my last 300 ranked games, played from 2026-04-11 to 2026-07-17 across 8 patches. Fetching more games will change these numbers:
 
 | | |
 |---|---|
-| Usable matches / samples | 303 matches → 3,030 player-games, 2,619 players, 172 champions |
-| Contexts seen | 22 of 32 |
-| (champion, keystone) estimates | 496, of which 188 have ≥ 5 games |
-| Replay coverage | a recommendation existed for 1,939 samples (64%) |
-| Took the recommended keystone | 1,199 (62% of covered) |
-| Mean reward: took it / didn't | +0.011 (51% WR) / +0.029 (52% WR) |
-| Difference (95% CI) | −0.018 [−0.081, +0.044] |
+| Usable matches / samples | 283 matches → 2,830 player-games (283 of them mine), 2,501 players, 172 champions |
+| Contexts seen | 21 of 32 |
+| (champion, keystone) estimates | 494, of which 181 have ≥ 5 games |
+| Replay coverage | a recommendation existed for 1,672 samples (59%) |
+| Took the recommended keystone | 1,031 (62% of covered) |
+| Mean reward: took it / didn't | +0.035 (52% WR) / −0.013 (49% WR) |
+| Difference (95% CI) | +0.048 [−0.020, +0.115] |
 
-**Interpretation:** there's no detectable difference. The interval includes zero, and it's optimistic, because the 10 samples from one match are correlated. Even a positive difference wouldn't be causal: these are observational choices made by players, not by the bandit. So the honest conclusion is that, with this data and this context, the bandit mostly learns each champion's usual keystone, and it doesn't find anything better than what players already do. Only 42 of the samples are my own games.
+**Interpretation:** the point estimate is slightly positive, but the 95% interval includes zero, and it's optimistic, because the 10 samples from one match are correlated. On an earlier cache snapshot (April 2026, 317 matches, mostly other players' games) the same check gave −0.018 [−0.081, +0.044]. So there's still no detectable edge. Even a clear positive difference wouldn't be causal: these are observational choices made by players, not by the bandit. With this data and this context, the bandit mostly learns each champion's usual keystone. 283 of the samples are my own decisions; the rest are the other nine players in the same games.
 
 ### Limitations
 
 - **Observational data.** The logging policy (how players choose keystones) is unknown, so the replay can't give an unbiased estimate of the bandit's value. That needs propensities and off-policy estimators such as IPS or doubly-robust.
-- **Narrow data.** The April 2026 snapshot covered about a week of games around one patch, while Data Dragon's static data is always the latest version.
+- **Narrow data.** The cache covers about three months and 8 patches of my own games, and the pooled samples only come from players who were in those games. Data Dragon's static data is always the latest version, not the patch each game was played on.
 - **Coarse context.** Five flags from class tags and 0–10 ratings ignore matchups, roles, items and player skill.
 - **Confounding.** A win depends mostly on nine other players, so even the shaped reward is a noisy signal for one rune choice.
 
@@ -283,7 +283,7 @@ What doesn't exist yet:
 
 - **Formulation beats algorithm choice.** Rune choice is a one-shot decision with a delayed payoff, so it's a contextual bandit. The hard parts turned out to be the context and the reward, not the update rule.
 - **Build features from reproducible data.** The first prototype's context came from hand-written champion files that were never committed, so it silently collapsed to one context. Rebuilding it on public Data Dragon data made it work on any clone.
-- **Pooling fixes sparsity.** One player's games spread over 127 champions leave most cells empty. Treating every participant in every cached match as a sample took the bandit from 18 samples to about 3,000.
+- **Pooling fixes sparsity.** One player's games spread over 112 champions leave most cells empty. Treating every participant in every cached match as a sample took the bandit from 18 samples to about 3,000.
 - **A null result is a result.** The replay shows no detectable edge, and saying so is more useful than a number that looks good. Observational data needs off-policy methods before any claim of improvement.
 - **Outcome ≠ decision quality.** A win is a very noisy signal for one player's choice in a 10-player game, which is why the reward also compares deaths and KP with teammates in the same game.
 - **Data quality issues creep in quietly.** An exclusion list for troll games, a remake filter, a schema change that broke the CSV header, and uncommitted knowledge files were all cases where results could have been silently wrong.
