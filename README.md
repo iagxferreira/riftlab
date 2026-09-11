@@ -108,9 +108,9 @@ flowchart LR
 - **Data Dragon** (public CDN, no key): champion and item metadata and icons.
 - **Hand-authored champion knowledge** (`data/comp.json`, `data/champions/*.json`): per-champion class, damage type, CC, mobility, scaling, win condition, plus rune pages, build conditions, bans and champ-select conditions. *These files aren't in the repository* (see [Known limitations](#known-limitations)).
 
-### Dataset in the repository
+### Dataset (generated locally, not committed)
 
-`matches.csv` is built by `dataset.py`:
+`matches.csv` is built by `dataset.py` and is gitignored, because it contains Riot API data and player IDs, so every user regenerates their own. The snapshot used while writing this README had:
 
 - 1,038 ranked Solo/Duo games (859 on the `lab` account, 179 on `main`), from 2024-10-07 to 2026-04-27, across 127 champions.
 - Columns: `match_id, account, puuid, champion, win, kills, deaths, assists, cs, damage, vision, kp, duration_min, timestamp, patch, queue`, plus `double/triple/quadra/penta_kills` on newer rows.
@@ -180,7 +180,7 @@ These are **not implemented**. They're what I'd investigate next:
 
 **RiftLab has no controlled experiments, benchmarks or evaluated models yet.** The repository contains:
 
-- a dataset (`matches.csv`, described above),
+- a dataset builder (`dataset.py`; the CSV itself is generated locally and not committed),
 - the rule-based analyses, whose outputs are per-run terminal reports and aren't saved as experiment artifacts,
 - the 18-observation bandit table above, which is too small to draw conclusions from.
 
@@ -200,7 +200,9 @@ make setup                 # creates .venv, installs requirements, copies .env.e
 # then edit .env and set RIOT_API_KEY
 ```
 
-Accounts are configured in `accounts.json` (label → Riot ID, platform, routing region). If that file is missing, `ACCOUNT_MAIN` / `ACCOUNT_LAB` from `.env` are used instead.
+Copy `accounts.example.json` to `accounts.json` and fill in your own Riot IDs (label → Riot ID, platform, routing region). `accounts.json` is gitignored. If it's missing, `ACCOUNT_MAIN` / `ACCOUNT_LAB` from `.env` are used instead.
+
+No Riot data ships with the repository. Build your local copies with `dataset.py fetch` (match dataset) and `ddragon.py fetch` (static champion/item data). The match cache fills itself as the tools run.
 
 ### Analysis
 
@@ -234,7 +236,7 @@ make exclude-main NOTE="afk"       # exclude the last game from analysis
 ### Known limitations
 
 - **`data/` isn't in the repository.** `champion_loader.py` reads `data/comp.json`, `data/aliases.json` and `data/champions/*.json`, but `.gitignore` excludes `data/` and those files were never committed. On a fresh clone every champion resolves as "unknown", so composition features are empty, the advisors return little or nothing, and the bandit context always falls back to `default`.
-- `matches.csv` has a 16-column header, but its 51 newest rows have 20 fields (multikill columns added later). As a result, `csv.DictReader` doesn't read the multikill counts correctly.
+- `dataset.py` appends 20-field rows, but a `matches.csv` created before the multikill columns were added keeps its 16-column header. `csv.DictReader` then misreads the multikill counts, so older CSVs need their header rewritten.
 - Some static game knowledge (e.g. "Mythic" item slots in `comp_check.py`) predates recent item-system changes and is out of date.
 - There are no tests.
 

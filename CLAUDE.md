@@ -4,12 +4,7 @@ Experimental data science / RL playground built on League of Legends data from t
 
 ## Accounts
 
-Configured in `accounts.json` (falls back to `ACCOUNT_*` in `.env`).
-
-| Label | Riot ID | Notes |
-|-------|---------|-------|
-| lab | OtherName#TAG | experimentation account |
-| main | GameName#TAG | main, Gold 4 |
+Configured in the local, gitignored `accounts.json` (template: `accounts.example.json`; falls back to `ACCOUNT_*` in `.env`). Labels: `main` (main account) and `lab` (experimentation account). Never commit real Riot IDs.
 
 Focus champions: **Cassiopeia**, **Syndra**
 
@@ -37,7 +32,8 @@ python rl_advisor.py feedback main
 
 - `data/` (comp.json, aliases.json, champions/*.json) is gitignored and not in the repo; `champion_loader.py` silently returns empty data without it.
 - `rl_advisor.rank_actions()` is not called anywhere yet — don't describe the bandit as influencing recommendations.
-- `matches.csv` header has 16 columns; newer rows have 20 (multikill columns).
+- Riot-sourced data (`matches.csv`, `.match_cache.json`, `game_history.json`, `ddragon/`) is gitignored and was purged from history — regenerate locally, never commit it.
+- Older local `matches.csv` files have a 16-column header while newer rows have 20 (multikill columns).
 
 ## API notes
 
