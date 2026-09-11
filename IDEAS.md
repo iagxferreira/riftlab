@@ -1,6 +1,6 @@
-# Ideas & Roadmap
+# RiftLab — Feature Ideas Backlog
 
-Roughly prioritized. Top section = build next.
+Older, roughly prioritized feature backlog (from the lol-helper days). The research roadmap lives in the README.
 
 ---
 

@@ -1,5 +1,5 @@
 """
-lol_stats.py — LoL rank & performance tracker.
+lol_stats.py — RiftLab rank overview, per-champion stats, and shared Riot API client.
 Accounts loaded from accounts.json — add/rename freely.
 """
 
@@ -276,7 +276,7 @@ def main():
         console.print("[red]Set RIOT_API_KEY in your .env file.[/red]")
         sys.exit(1)
 
-    console.print("[bold green]LoL Stats Tracker[/bold green]\n")
+    console.print("[bold green]RiftLab — Rank & Champion Stats[/bold green]\n")
     print_rank_overview()
 
     for label in ACCOUNTS:
