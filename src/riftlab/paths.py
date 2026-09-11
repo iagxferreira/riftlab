@@ -10,7 +10,5 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 
 ACCOUNTS_FILE = ROOT / "accounts.json"
-DATA_DIR      = ROOT / "data"              # hand-authored champion knowledge
 MATCHES_CSV   = ROOT / "matches.csv"
 MATCH_CACHE   = ROOT / ".match_cache.json"
-DDRAGON_DIR   = ROOT / "ddragon"

@@ -17,7 +17,8 @@ data/
 # Personal account config (copy accounts.example.json)
 accounts.json
 
-# Riot-sourced data — regenerate with dataset.py / ddragon.py
+# Riot-sourced data — matches.csv is rebuilt by riftlab.ingest.dataset;
+# game_history.json and ddragon/ are local leftovers from removed tools
 matches.csv
 game_history.json
 /ddragon/

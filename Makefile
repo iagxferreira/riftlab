@@ -1,7 +1,7 @@
 RUN   := uv run python -m riftlab
 GAMES ?= 20
 
-.PHONY: setup stats profile-main profile-lab last-main last-lab dataset-fetch dataset-stats ddragon-fetch comp-last-main comp-last-lab comp-live-main comp-live-lab build-live-main build-live-lab pregame-main pregame-lab runes-main runes-lab exclude-main exclude-lab cache-list rl-fetch-main rl-fetch-lab rl-summary rl-evaluate test observe-main observe-lab pick-main pick-lab clean
+.PHONY: setup stats profile-main profile-lab last-main last-lab dataset-fetch dataset-stats exclude-main exclude-lab cache-list rl-fetch-main rl-fetch-lab rl-summary rl-evaluate test clean
 
 setup: .env
 	uv sync
@@ -35,9 +35,6 @@ dataset-fetch:
 dataset-stats:
 	$(RUN).ingest.dataset stats
 
-ddragon-fetch:
-	$(RUN).ingest.ddragon fetch
-
 exclude-main:
 	$(RUN).cache exclude main --note "$(NOTE)"
 
@@ -46,50 +43,6 @@ exclude-lab:
 
 cache-list:
 	$(RUN).cache list
-
-# --- advisors ---------------------------------------------------------------
-
-comp-last-main:
-	$(RUN).advisors.comp_check --from-last main
-
-comp-last-lab:
-	$(RUN).advisors.comp_check --from-last lab
-
-comp-live-main:
-	$(RUN).advisors.comp_check --live main
-
-comp-live-lab:
-	$(RUN).advisors.comp_check --live lab
-
-build-live-main:
-	$(RUN).advisors.build_advisor --live main
-
-build-live-lab:
-	$(RUN).advisors.build_advisor --live lab
-
-pregame-main:
-	$(RUN).advisors.pregame main
-
-pregame-lab:
-	$(RUN).advisors.pregame lab
-
-runes-main:
-	$(RUN).advisors.runes main
-
-runes-lab:
-	$(RUN).advisors.runes lab
-
-observe-main:
-	$(RUN).advisors.observer main
-
-observe-lab:
-	$(RUN).advisors.observer lab
-
-pick-main:
-	$(RUN).advisors.champ_select main
-
-pick-lab:
-	$(RUN).advisors.champ_select lab
 
 # --- bandit -----------------------------------------------------------------
 
