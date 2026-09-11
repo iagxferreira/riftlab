@@ -1,10 +1,10 @@
 # RiftLab
 
-Experimental data science / RL playground built on League of Legends data from two BR accounts. Pulls data from the Riot API, builds a local match dataset, runs descriptive + rule-based analysis, and has a contextual-bandit prototype (`src/riftlab/rl/bandit.py`). See README.md for the full audit of what is implemented vs planned.
+Experimental data science / RL project on League of Legends data from my BR ranked games. Pulls data from the Riot API, builds a local ranked-match dataset, runs descriptive analysis, and learns a contextual bandit for keystone rune choice offline from logged games (`src/riftlab/rl/`). See README.md for what exists vs what's planned.
 
 ## Accounts
 
-Configured in the local, gitignored `accounts.json` (template: `accounts.example.json`; falls back to `ACCOUNT_*` in `.env`). Labels: `main` (main account) and `lab` (experimentation account). Never commit real Riot IDs.
+Configured in the local, gitignored `accounts.json` (template: `accounts.example.json`; falls back to `ACCOUNT_MAIN`, `REGION` and `REGION_ROUTING` in `.env`). There's one account, labelled `main`; the old second (`lab`) account is gone. Never commit real Riot IDs.
 
 Focus champions: **Cassiopeia**, **Syndra**
 
@@ -23,20 +23,25 @@ Code lives in the `src/riftlab/` package (layout in README "Project layout"). Ru
 
 ```bash
 make stats                                          # riftlab.analysis.stats
-uv run python -m riftlab.analysis.playstyle main --games 40
+make last                                           # riftlab.analysis.last_match main
 make dataset-fetch                                  # riftlab.ingest.dataset fetch
-make feedback-main                                  # riftlab.rl.bandit feedback main
+make rl-summary                                     # riftlab.rl.bandit summary
+make rl-evaluate                                    # chronological replay evaluation
+uv run python -m riftlab.rl.bandit recommend Syndra --ally "..." --enemy "..."
+make test                                           # pytest
 ```
 
-Dependencies are managed with uv (`pyproject.toml` + `uv.lock`): add them with `uv add <pkg>`. There's no requirements.txt and no pip.
+Dependencies are managed with uv (`pyproject.toml` + `uv.lock`): add them with `uv add <pkg>` (`uv add --dev` for tooling). There's no requirements.txt and no pip.
 
 ## Gotchas
 
-- `data/` (comp.json, aliases.json, champions/*.json) is gitignored and not in the repo; `champion_loader.py` silently returns empty data without it.
-- Local file locations (accounts.json, data/, matches.csv, caches, weights, ddragon/) come from `riftlab/paths.py`, anchored at the project root. Don't hardcode cwd-relative paths.
-- `riftlab.rl.bandit.rank_actions()` is not called anywhere yet — don't describe the bandit as influencing recommendations.
-- Riot-sourced data (`matches.csv`, `.match_cache.json`, `game_history.json`, `ddragon/`) is gitignored and was purged from history — regenerate locally, never commit it.
+- Local file locations (accounts.json, matches.csv, the match cache) come from `riftlab/paths.py`, anchored at the project root. Don't hardcode cwd-relative paths.
+- The bandit has no weights file: it's rebuilt from `.match_cache.json` on every run. Every participant of every cached match is a sample, so the cache's other-player games are its training data. Don't prune them.
+- Bandit context uses Data Dragon (champion tags + attack/magic ratings) fetched live; tests use synthetic `StaticData` and need no network.
+- The replay evaluation currently shows no detectable edge for the bandit's recommendations (see README). Don't describe it as improving outcomes.
+- Riot-sourced data (`matches.csv`, `.match_cache.json`) is gitignored and was purged from history. Regenerate it locally and never commit it.
 - Older local `matches.csv` files have a 16-column header while newer rows have 20 (multikill columns).
+- The rule-based advisors and the Data Dragon downloader were removed because they depended on champion data that was never committed. They're in git history up to `ed9043d`.
 
 ## API notes
 
