@@ -1,0 +1,18 @@
+[project]
+name = "riftlab"
+version = "0.1.0"
+description = "Data science and reinforcement learning experiments for understanding decision-making and strategy in League of Legends."
+readme = "README.md"
+authors = [
+    { name = "Iago Ferreira", email = "iago-ferreira@outlook.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "python-dotenv>=1.0.1",
+    "requests>=2.32.3",
+    "rich>=13.9.4",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
