@@ -1,8 +1,10 @@
-# lol-helper
+# RiftLab
 
-Personal LoL stats tracker for two BR accounts. Pulls data from the Riot API and surfaces patterns that op.gg's cached pages can't show.
+Experimental data science / RL playground built on League of Legends data from two BR accounts. Pulls data from the Riot API, builds a local match dataset, runs descriptive + rule-based analysis, and has a contextual-bandit prototype (`rl_advisor.py`). See README.md for the full audit of what is implemented vs planned.
 
 ## Accounts
+
+Configured in `accounts.json` (falls back to `ACCOUNT_*` in `.env`).
 
 | Label | Riot ID | Notes |
 |-------|---------|-------|
@@ -14,31 +16,28 @@ Focus champions: **Cassiopeia**, **Syndra**
 ## Setup
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env  # add RIOT_API_KEY
+make setup   # venv + deps + .env
+# add RIOT_API_KEY to .env
 ```
 
 Riot dev keys expire every 24h — regenerate at https://developer.riotgames.com if you get 401s.
 
 ## Running
 
-```bash
-# Rank overview + per-champion stats (both accounts)
-python lol_stats.py
+See the Makefile / README "Running locally". Common:
 
-# Playstyle analysis + champion suggestions
-python playstyle.py main
-python playstyle.py lab
+```bash
+python lol_stats.py
 python playstyle.py main --games 40
+python dataset.py fetch
+python rl_advisor.py feedback main
 ```
 
-## Files
+## Gotchas
 
-- `lol_stats.py` — rank overview and champion stats tables
-- `playstyle.py` — playstyle profiling, coaching insights, champion suggestions
-- `requirements.txt` — pinned deps (requests, dotenv, pandas, rich)
-- `.env` — secrets, never commit
+- `data/` (comp.json, aliases.json, champions/*.json) is gitignored and not in the repo; `champion_loader.py` silently returns empty data without it.
+- `rl_advisor.rank_actions()` is not called anywhere yet — don't describe the bandit as influencing recommendations.
+- `matches.csv` header has 16 columns; newer rows have 20 (multikill columns).
 
 ## API notes
 
