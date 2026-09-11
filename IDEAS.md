@@ -46,10 +46,10 @@ e.g. "When you play Bard and die 6+, you win 20%. When you die ≤4, you win 65%
 ## Quality of life
 
 ### `--watch` mode
-Re-run lol_stats.py every N minutes and print a diff, useful during a grind session.
+Re-run the stats CLI (`riftlab.analysis.stats`) every N minutes and print a diff, useful during a grind session.
 
 ### champion pool suggestions refresh
-Expand CHAMP_DB in playstyle.py with more champions and patch-aware tier data.
+Expand CHAMP_DB in `analysis/playstyle.py` with more champions and patch-aware tier data.
 
 ### Export to CSV
-`python lol_stats.py --export` dumps match rows to a CSV for external analysis (spreadsheets, etc).
+`python -m riftlab.analysis.stats --export` dumps match rows to a CSV for external analysis (spreadsheets, etc).
