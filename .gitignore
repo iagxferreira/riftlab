@@ -13,3 +13,6 @@ data/
 
 # Local API response cache (regenerable; contains other players' match data)
 .match_cache.json
+
+# Personal account config (copy accounts.example.json)
+accounts.json
