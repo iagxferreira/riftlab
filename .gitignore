@@ -10,3 +10,6 @@ env/
 *.db
 *.sqlite3
 data/
+
+# Local API response cache (regenerable; contains other players' match data)
+.match_cache.json
