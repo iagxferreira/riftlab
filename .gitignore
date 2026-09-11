@@ -21,3 +21,9 @@ accounts.json
 matches.csv
 game_history.json
 /ddragon/
+
+# Old bandit weights — the model is now rebuilt from the match cache
+.rl_weights.json
+
+# Test runner cache
+.pytest_cache/

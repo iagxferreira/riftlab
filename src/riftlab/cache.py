@@ -62,6 +62,11 @@ def get_match_cached(match_id: str) -> dict:
     return data["matches"][match_id]
 
 
+def all_cached() -> dict[str, dict]:
+    """Return {match_id: match} for every cached match."""
+    return _load()["matches"]
+
+
 def is_excluded(match_id: str) -> bool:
     return match_id in _load()["excluded"]
 

@@ -1,7 +1,7 @@
 RUN   := uv run python -m riftlab
 GAMES ?= 20
 
-.PHONY: setup stats profile-main profile-lab last-main last-lab dataset-fetch dataset-stats ddragon-fetch comp-last-main comp-last-lab comp-live-main comp-live-lab build-live-main build-live-lab pregame-main pregame-lab runes-main runes-lab exclude-main exclude-lab cache-list feedback-main feedback-lab rl-weights observe-main observe-lab pick-main pick-lab clean
+.PHONY: setup stats profile-main profile-lab last-main last-lab dataset-fetch dataset-stats ddragon-fetch comp-last-main comp-last-lab comp-live-main comp-live-lab build-live-main build-live-lab pregame-main pregame-lab runes-main runes-lab exclude-main exclude-lab cache-list rl-fetch-main rl-fetch-lab rl-summary rl-evaluate test observe-main observe-lab pick-main pick-lab clean
 
 setup: .env
 	uv sync
@@ -93,14 +93,20 @@ pick-lab:
 
 # --- bandit -----------------------------------------------------------------
 
-feedback-main:
-	$(RUN).rl.bandit feedback main
+rl-fetch-main:
+	$(RUN).rl.bandit fetch main --games $(GAMES)
 
-feedback-lab:
-	$(RUN).rl.bandit feedback lab
+rl-fetch-lab:
+	$(RUN).rl.bandit fetch lab --games $(GAMES)
 
-rl-weights:
-	$(RUN).rl.bandit weights
+rl-summary:
+	$(RUN).rl.bandit summary
+
+rl-evaluate:
+	$(RUN).rl.bandit evaluate
+
+test:
+	uv run pytest
 
 clean:
 	rm -rf .venv

@@ -1,332 +1,326 @@
 """
-rl_advisor.py — Contextual-bandit prototype for keystone rune recommendations.
+bandit.py — Contextual bandit for keystone rune choice, learned offline from logged games.
 
-After each game, logs (champion, comp context, keystone actually used, shaped
-reward) and updates a per-(champion, context, keystone) score with an
-exponential moving average. rank_actions() can re-rank candidate actions once
-one has MIN_GAMES observations, but it is not yet called by pregame.py or
-runes.py — recommendations there are still fully rule-based.
+Every participant of every cached ranked match is one logged decision
+(see features.py): context = both teams' champion classes, action = the
+keystone taken, reward = result + deaths/KP relative to teammates. The model
+is rebuilt from the local match cache on every run, so the same cache always
+gives the same results.
+
+Estimates are kept per (champion, context, keystone), fall back to
+(champion, keystone) when a context has fewer than MIN_CONTEXT_N games, and
+are shrunk toward 0 for small samples. The logged actions were chosen by
+players, not by this policy, so all estimates are observational.
 
 Usage:
-  python -m riftlab.rl.bandit feedback main          # log last game outcome
-  python -m riftlab.rl.bandit feedback main --match BR1_123456
-  python -m riftlab.rl.bandit weights                # show learned weights
-  python -m riftlab.rl.bandit reset                  # wipe learned weights
+  python -m riftlab.rl.bandit fetch main --games 100   # pull ranked games into the cache
+  python -m riftlab.rl.bandit summary                  # dataset / model size
+  python -m riftlab.rl.bandit show Syndra              # keystone estimates for a champion
+  python -m riftlab.rl.bandit recommend Syndra --ally "Jinx,Rakan,Sejuani,Garen" \\
+      --enemy "Zed,Lux,Nautilus,Caitlyn,Darius"
+  python -m riftlab.rl.bandit evaluate                 # chronological replay evaluation
 """
 
-import json
 import argparse
-import time
-from riftlab.paths import RL_WEIGHTS
-from datetime import datetime
+import csv
+import math
+from collections import defaultdict
+from dataclasses import dataclass
+from itertools import groupby
 
-from dotenv import load_dotenv
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
 from rich import box
+from rich.table import Table
 
-from riftlab.riot import get_account, get_match_ids, extract_participant, ACCOUNTS
-from riftlab.cache import get_match_cached, is_excluded
-from riftlab.advisors.comp_check import analyze_comp
+from riftlab.cache import all_cached, get_excluded, get_match_cached
+from riftlab.paths import MATCHES_CSV
+from riftlab.riot import ACCOUNTS, console, get_account, get_match_ids
+from riftlab.rl.features import CONTEXT_FLAGS, Sample, context_key, samples_from_match, team_context
+from riftlab.rl.static import Champion, StaticData, load_static
 
-load_dotenv()
-console = Console()
-
-WEIGHTS_FILE = RL_WEIGHTS
-LEARNING_RATE = 0.2   # how fast to update weights (0=never update, 1=replace)
-MIN_GAMES = 3         # minimum observations before weights influence recommendations
-
-
-# ---------------------------------------------------------------------------
-# State bucketing — discrete context keys from comp analysis
-# ---------------------------------------------------------------------------
-
-def build_state(ally_comp: dict, enemy_comp: dict) -> frozenset[str]:
-    """Reduce comp analysis to a small set of context flags."""
-    state = set()
-
-    enemy_ap = enemy_comp["magic_dmg"]
-    enemy_ad = enemy_comp["phys_dmg"]
-    enemy_cc = enemy_comp["hard_cc"] + enemy_comp["soft_cc"]
-
-    if enemy_ap >= 3:                         state.add("ap_heavy")
-    if enemy_ad >= 3:                         state.add("ad_heavy")
-    if enemy_ap >= 2 and enemy_ad >= 2:       state.add("mixed_dmg")
-    if enemy_cc >= 4:                         state.add("cc_heavy")
-    if len(enemy_comp["late_scalers"]) >= 2:  state.add("late_game")
-    if len(enemy_comp["assassins"]) >= 1:     state.add("has_assassin")
-    if len(ally_comp["frontline"]) == 0:      state.add("no_frontline")
-
-    ally_names = {n for n, _ in ally_comp["resolved"]}
-    fighting_adcs = {"Samira", "Draven", "Jinx", "Tristana", "Kaisa"}
-    peel_adcs     = {"Vayne", "Ezreal", "Aphelios", "Caitlyn", "Jhin"}
-    if ally_names & fighting_adcs:            state.add("fighting_adc")
-    if ally_names & peel_adcs:                state.add("peel_adc")
-
-    return frozenset(state)
-
-
-def state_key(state: frozenset[str]) -> str:
-    return ",".join(sorted(state)) or "default"
+PRIOR_N = 2.0        # pseudo-games at reward 0 that every estimate starts with
+MIN_CONTEXT_N = 10   # games a (champion, context) needs before it's used instead of the champion level
+MIN_ARM_N = 5        # games a keystone needs before it can be the greedy recommendation
+ANY = "*"            # context key for the champion-level fallback
 
 
 # ---------------------------------------------------------------------------
-# Reward function
+# Model
 # ---------------------------------------------------------------------------
 
-def compute_reward(participant: dict, avg_deaths: float, avg_kp: float) -> float:
+@dataclass
+class Arm:
+    n: int = 0
+    wins: int = 0
+    total: float = 0.0
+
+    def add(self, reward: float, win: bool):
+        self.n += 1
+        self.wins += int(win)
+        self.total += reward
+
+    @property
+    def mean(self) -> float:
+        return self.total / self.n if self.n else 0.0
+
+    @property
+    def shrunk(self) -> float:
+        """Mean shrunk toward 0 by PRIOR_N pseudo-games, so one lucky game can't dominate."""
+        return self.total / (self.n + PRIOR_N)
+
+
+@dataclass(frozen=True)
+class Estimate:
+    action: str
+    value: float   # shrunk mean, plus the UCB bonus when exploring
+    mean: float
+    n: int
+    wins: int
+    level: str     # context key the estimate came from, or ANY
+
+
+class Bandit:
+    def __init__(self):
+        self.table: dict[tuple[str, str], dict[str, Arm]] = defaultdict(lambda: defaultdict(Arm))
+
+    def update(self, s: Sample):
+        for ctx in (context_key(s.context), ANY):
+            self.table[(s.champion, ctx)][s.action].add(s.reward, s.win)
+
+    def arms(self, champion: str, context: frozenset[str]) -> tuple[str, dict[str, Arm]]:
+        """Arms for this context if it has enough games, else the champion-level arms."""
+        key = context_key(context)
+        arms = self.table.get((champion, key), {})
+        if sum(a.n for a in arms.values()) >= MIN_CONTEXT_N:
+            return key, arms
+        return ANY, self.table.get((champion, ANY), {})
+
+    def rank(self, champion: str, context: frozenset[str], explore: bool = False) -> list[Estimate]:
+        level, arms = self.arms(champion, context)
+        total = sum(a.n for a in arms.values())
+        ranked = []
+        for action, arm in arms.items():
+            value = arm.shrunk
+            if explore:  # UCB1 bonus: favors keystones that have been tried less
+                value += math.sqrt(2 * math.log(max(total, 2)) / arm.n)
+            ranked.append(Estimate(action, value, arm.mean, arm.n, arm.wins, level))
+        return sorted(ranked, key=lambda e: e.value, reverse=True)
+
+    def greedy(self, champion: str, context: frozenset[str]) -> str | None:
+        """Best-estimated keystone among those with at least MIN_ARM_N games, else None."""
+        return next((e.action for e in self.rank(champion, context) if e.n >= MIN_ARM_N), None)
+
+
+def fit(samples: list[Sample]) -> Bandit:
+    model = Bandit()
+    for s in samples:
+        model.update(s)
+    return model
+
+
+def replay(samples: list[Sample]) -> dict:
     """
-    Reward in [-1.0, 1.0].
-    Win contributes most. Deaths below baseline = bonus. KP above baseline = bonus.
+    Chronological replay: before each match, ask the model (trained only on
+    earlier matches) for its greedy keystone for every participant, then learn
+    from the match. Samples must be sorted by time.
     """
-    reward = 1.0 if participant["win"] else -0.5
-
-    deaths = participant.get("deaths", 6)
-    deaths_delta = avg_deaths - deaths          # positive = fewer deaths than usual
-    reward += min(0.3, deaths_delta * 0.05)     # capped at +0.3
-
-    kp = participant.get("challenges", {}).get("killParticipation", avg_kp)
-    kp_delta = kp - avg_kp                      # positive = more KP than usual
-    reward += min(0.2, kp_delta * 0.4)          # capped at +0.2
-
-    return max(-1.0, min(1.0, reward))
-
-
-# ---------------------------------------------------------------------------
-# Weight store
-# ---------------------------------------------------------------------------
-
-def _load_weights() -> dict:
-    if WEIGHTS_FILE.exists():
-        try:
-            return json.loads(WEIGHTS_FILE.read_text())
-        except Exception:
-            pass
-    return {}
-
-
-def _save_weights(w: dict):
-    WEIGHTS_FILE.write_text(json.dumps(w, indent=2))
-
-
-def update_weight(champion: str, ctx_key: str, action: str, reward: float):
-    """Exponential moving average update."""
-    w = _load_weights()
-    champ_w = w.setdefault(champion, {})
-    ctx_w   = champ_w.setdefault(ctx_key, {})
-
-    entry = ctx_w.get(action, {"score": 0.0, "n": 0})
-    old_score = entry["score"]
-    n         = entry["n"]
-
-    new_score = (1 - LEARNING_RATE) * old_score + LEARNING_RATE * reward
-    ctx_w[action] = {"score": round(new_score, 4), "n": n + 1}
-
-    _save_weights(w)
-
-
-def get_weight(champion: str, ctx_key: str, action: str) -> tuple[float, int]:
-    """Return (score, n_observations) for a (champion, context, action) triple."""
-    w = _load_weights()
-    entry = w.get(champion, {}).get(ctx_key, {}).get(action, None)
-    if entry is None:
-        return 0.0, 0
-    return entry["score"], entry["n"]
+    model = Bandit()
+    agree, disagree, uncovered = [], [], 0
+    for _, group in groupby(samples, key=lambda s: s.match_id):
+        group = list(group)
+        for s in group:
+            rec = model.greedy(s.champion, s.context)
+            if rec is None:
+                uncovered += 1
+            elif rec == s.action:
+                agree.append(s)
+            else:
+                disagree.append(s)
+        for s in group:
+            model.update(s)
+    return {"n": len(samples), "uncovered": uncovered, "agree": agree, "disagree": disagree}
 
 
 # ---------------------------------------------------------------------------
-# Public API — intended for pregame/runes weighted recommendations (not wired in yet)
+# Data loading
 # ---------------------------------------------------------------------------
 
-def rank_actions(champion: str, ctx_key: str, actions: list[str]) -> list[tuple[str, float, int]]:
-    """
-    Return actions sorted by learned score descending.
-    Actions with < MIN_GAMES observations keep their original order (rule-based wins).
-    Returns list of (action, score, n).
-    """
-    scored = []
-    for action in actions:
-        score, n = get_weight(champion, ctx_key, action)
-        scored.append((action, score, n))
+def my_puuids() -> set[str]:
+    """PUUIDs of the configured accounts (from matches.csv if present, else the API)."""
+    if MATCHES_CSV.exists():
+        with open(MATCHES_CSV, newline="") as f:
+            ids = {r["puuid"] for r in csv.DictReader(f) if r.get("puuid")}
+        if ids:
+            return ids
+    return {get_account(*rid.rsplit("#", 1))["puuid"] for rid in ACCOUNTS.values() if rid}
 
-    has_data = any(n >= MIN_GAMES for _, _, n in scored)
-    if not has_data:
-        return scored  # keep original rule-based order
 
-    return sorted(scored, key=lambda x: x[1], reverse=True)
+def load_samples(static: StaticData, scope: str = "all") -> list[Sample]:
+    excluded = get_excluded()
+    samples = []
+    for mid, match in all_cached().items():
+        if mid not in excluded:
+            samples.extend(samples_from_match(mid, match, static))
+    if scope == "mine":
+        mine = my_puuids()
+        samples = [s for s in samples if s.puuid in mine]
+    return sorted(samples, key=lambda s: (s.timestamp, s.match_id))
 
 
 # ---------------------------------------------------------------------------
-# Feedback command — run after each game
+# CLI
 # ---------------------------------------------------------------------------
 
-def cmd_feedback(args):
-    account_str = ACCOUNTS[args.account]
-    game_name, tag = account_str.rsplit("#", 1)
-    acct  = get_account(game_name, tag)
-    puuid = acct["puuid"]
+def _champion(static: StaticData, name: str) -> Champion:
+    c = static.champion_by_name(name)
+    if c is None:
+        raise SystemExit(f"Unknown champion: {name!r}")
+    return c
 
-    # Find the match to log
-    if args.match:
-        mid = args.match
-    else:
-        ids = get_match_ids(puuid, count=5)
-        mid = next((m for m in ids if not is_excluded(m)), None)
-        if not mid:
-            console.print("[red]No recent non-excluded game found.[/red]")
-            return
 
-    match = get_match_cached(mid)
-    p     = extract_participant(match, puuid)
-    if not p:
-        console.print("[red]Could not find your participant data.[/red]")
+def _names(raw: str | None) -> list[str]:
+    return [n.strip() for n in (raw or "").split(",") if n.strip()]
+
+
+def _mean_var(xs: list[float]) -> tuple[float, float]:
+    """Mean and variance of the mean (0 variance for n < 2)."""
+    m = sum(xs) / len(xs)
+    var = sum((x - m) ** 2 for x in xs) / (len(xs) - 1) if len(xs) > 1 else 0.0
+    return m, var / len(xs)
+
+
+def _estimates_table(title: str, estimates: list[Estimate], value_label: str) -> Table:
+    t = Table(title=title, box=box.SIMPLE)
+    t.add_column("Keystone", style="cyan")
+    t.add_column(value_label, justify="right")
+    t.add_column("Mean reward", justify="right")
+    t.add_column("Games", justify="right")
+    t.add_column("WR", justify="right")
+    for e in estimates:
+        low = " [dim](low data)[/dim]" if e.n < MIN_ARM_N else ""
+        t.add_row(e.action, f"{e.value:+.3f}", f"{e.mean:+.3f}", f"{e.n}{low}", f"{e.wins / e.n * 100:.0f}%")
+    return t
+
+
+def cmd_fetch(args):
+    game_name, tag = ACCOUNTS[args.account].rsplit("#", 1)
+    puuid = get_account(game_name, tag)["puuid"]
+    cached = set(all_cached())
+    new = [m for m in get_match_ids(puuid, count=args.games) if m not in cached]
+    console.print(f"[dim]{len(new)} of the last {args.games} ranked games are not cached yet.[/dim]")
+    for i, mid in enumerate(new, 1):
+        get_match_cached(mid)
+        console.print(f"[dim]  {i}/{len(new)} {mid}[/dim]")
+    console.print(f"[green]Cache now holds {len(cached) + len(new)} matches.[/green]")
+
+
+def cmd_summary(args):
+    static = load_static()
+    samples = load_samples(static, args.scope)
+    model = fit(samples)
+    champ_arms = [a for (_, ctx), arms in model.table.items() if ctx == ANY for a in arms.values()]
+    t = Table(title=f"Bandit dataset ({args.scope} players)", box=box.SIMPLE, show_header=False)
+    t.add_column(style="bold"); t.add_column(justify="right")
+    t.add_row("Samples (player-games)", str(len(samples)))
+    t.add_row("Matches", str(len({s.match_id for s in samples})))
+    t.add_row("Players", str(len({s.puuid for s in samples})))
+    t.add_row("Champions", str(len({s.champion for s in samples})))
+    t.add_row("Contexts seen", f"{len({context_key(s.context) for s in samples})} of {2 ** len(CONTEXT_FLAGS)}")
+    t.add_row("(champion, keystone) arms", str(len(champ_arms)))
+    t.add_row(f"  with ≥ {MIN_ARM_N} games", str(sum(a.n >= MIN_ARM_N for a in champ_arms)))
+    t.add_row("Data Dragon version", static.version)
+    console.print(t)
+
+
+def cmd_show(args):
+    static = load_static()
+    champ = _champion(static, args.champion)
+    model = fit(load_samples(static, args.scope))
+    ranked = model.rank(champ.name, frozenset({"__no_such_context__"}))  # forces champion level
+    if not ranked:
+        console.print(f"[yellow]No cached games for {champ.display}.[/yellow]")
         return
+    console.print(_estimates_table(f"{champ.display} — all contexts", ranked, "Shrunk mean"))
+    for (name, ctx), arms in sorted(model.table.items()):
+        if name == champ.name and ctx != ANY and sum(a.n for a in arms.values()) >= MIN_CONTEXT_N:
+            est = model.rank(champ.name, frozenset(ctx.split(",")) if ctx != "none" else frozenset())
+            console.print(_estimates_table(f"context: {ctx}", est, "Shrunk mean"))
 
-    my_champ = p["championName"]
-    duration = match["info"]["gameDuration"] / 60
-    if duration < 10:
-        console.print("[yellow]Game too short to log.[/yellow]")
+
+def cmd_recommend(args):
+    static = load_static()
+    champ = _champion(static, args.champion)
+    allies = [_champion(static, n) for n in _names(args.ally)]
+    allies = [c for c in allies if c.key != champ.key]
+    enemies = [_champion(static, n) for n in _names(args.enemy)]
+    context = team_context(allies, enemies)
+
+    model = fit(load_samples(static, args.scope))
+    ranked = model.rank(champ.name, context, explore=args.explore)
+    console.print(f"[bold]{champ.display}[/bold]  context: [cyan]{context_key(context)}[/cyan]")
+    if not ranked:
+        console.print(f"[yellow]No cached games for {champ.display} — nothing to recommend yet.[/yellow]")
         return
+    level = ranked[0].level
+    if level == ANY:
+        console.print(f"[dim]Fewer than {MIN_CONTEXT_N} games in this context — using all of {champ.display}'s games.[/dim]")
+    label = "UCB score" if args.explore else "Shrunk mean"
+    console.print(_estimates_table("Keystone ranking", ranked, label))
+    console.print("[dim]Observational estimates from other players' logged choices, not a causal effect.[/dim]")
 
-    # Build comp state from the match
-    all_parts = match["info"]["participants"]
-    my_team   = p["teamId"]
-    ally_names  = [q["championName"] for q in all_parts if q["teamId"] == my_team   and q["championName"] != my_champ]
-    enemy_names = [q["championName"] for q in all_parts if q["teamId"] != my_team]
 
-    ally_comp  = analyze_comp([my_champ] + ally_names)
-    enemy_comp = analyze_comp(enemy_names)
-    state      = build_state(ally_comp, enemy_comp)
-    ctx_key    = state_key(state)
+def cmd_evaluate(args):
+    static = load_static()
+    samples = load_samples(static, args.scope)
+    res = replay(samples)
+    agree, disagree = res["agree"], res["disagree"]
+    covered = len(agree) + len(disagree)
 
-    # Simple baselines from recent history (last 10 non-excluded games)
-    baseline_ids = [m for m in get_match_ids(puuid, count=15) if not is_excluded(m) and m != mid][:10]
-    baseline_deaths, baseline_kp = [], []
-    for bid in baseline_ids:
-        try:
-            bm = get_match_cached(bid)
-            bp = extract_participant(bm, puuid)
-            if bp:
-                baseline_deaths.append(bp.get("deaths", 6))
-                ch = bp.get("challenges", {})
-                baseline_kp.append(ch.get("killParticipation", 0.5))
-        except Exception:
-            pass
-        time.sleep(0.02)
-
-    avg_deaths = sum(baseline_deaths) / len(baseline_deaths) if baseline_deaths else 6.0
-    avg_kp     = sum(baseline_kp) / len(baseline_kp) if baseline_kp else 0.5
-
-    reward = compute_reward(p, avg_deaths, avg_kp)
-
-    # Infer what rune page was likely used (from keystone perk ID in the match)
-    perk_style = p.get("perks", {}).get("styles", [{}])[0]
-    keystone_id = next(
-        (sel["perk"] for sel in perk_style.get("selections", []) if sel.get("perk", 0) in {
-            8439, 8465, 8214, 8437, 8112, 8128, 9923, 8005, 8008, 8021, 8010,
-            8351, 8360, 8369, 8229, 8230
-        }),
-        0
+    t = Table(title="Chronological replay", box=box.SIMPLE, show_header=False)
+    t.add_column(style="bold"); t.add_column(justify="right")
+    t.add_row("Samples", str(res["n"]))
+    t.add_row("Covered (a recommendation existed)", f"{covered} ({covered / max(res['n'], 1) * 100:.0f}%)")
+    if agree and disagree:
+        (ma, va), (md, vd) = _mean_var([s.reward for s in agree]), _mean_var([s.reward for s in disagree])
+        diff, se = ma - md, math.sqrt(va + vd)
+        wr = lambda xs: sum(s.win for s in xs) / len(xs) * 100
+        t.add_row("Player took the recommended keystone", f"{len(agree)} ({len(agree) / covered * 100:.0f}%)")
+        t.add_row("Mean reward — took it", f"{ma:+.3f}  (WR {wr(agree):.0f}%)")
+        t.add_row("Mean reward — didn't", f"{md:+.3f}  (WR {wr(disagree):.0f}%)")
+        t.add_row("Difference (95% CI)", f"{diff:+.3f}  [{diff - 1.96 * se:+.3f}, {diff + 1.96 * se:+.3f}]")
+    console.print(t)
+    console.print(
+        "[dim]Observational check, not a causal estimate: players who pick the recommended keystone may differ in "
+        "other ways, and the 10 samples from one match are correlated, so the interval is optimistic.[/dim]"
     )
-    KEYSTONE_NAMES = {
-        8439: "Aftershock", 8465: "Guardian", 8214: "Summon Aery",
-        8437: "Grasp of the Undying", 8112: "Electrocute", 8128: "Dark Harvest",
-        9923: "Hail of Blades", 8005: "Press the Attack", 8008: "Lethal Tempo",
-        8021: "Fleet Footwork", 8010: "Conqueror", 8351: "Glacial Augment",
-        8360: "Unsealed Spellbook", 8369: "First Strike", 8229: "Arcane Comet",
-        8230: "Phase Rush",
-    }
-    keystone_name = KEYSTONE_NAMES.get(keystone_id, "Unknown")
 
-    # Infer mythic from items (first legendary support item found)
-    MYTHICS = {"Locket of the Iron Solari", "Shurelya's Battlesong",
-               "Imperial Mandate", "Moonstone Renewer", "Echoes of Helia"}
-    items = [p.get(f"item{i}") for i in range(7)]
-    # We don't have item ID→name here without Data Dragon, so log keystone as primary action
-    action = f"keystone:{keystone_name}"
-
-    update_weight(my_champ, ctx_key, action, reward)
-
-    # Display
-    outcome_str = "[green]WIN[/green]" if p["win"] else "[red]LOSS[/red]"
-    reward_str  = f"[green]+{reward:.2f}[/green]" if reward > 0 else f"[red]{reward:.2f}[/red]"
-    ch = p.get("challenges", {})
-
-    console.print()
-    console.print(Panel(
-        f"  Match  : {mid}\n"
-        f"  Champ  : {my_champ}\n"
-        f"  Result : {outcome_str}\n"
-        f"  Kills  : {p['kills']}/{p['deaths']}/{p['assists']}\n"
-        f"  KP     : {ch.get('killParticipation', 0)*100:.0f}%   Vision: {p['visionScore']}\n\n"
-        f"  Context: {ctx_key}\n"
-        f"  Action : {action}\n"
-        f"  Reward : {reward_str}   (baseline deaths: {avg_deaths:.1f}, kp: {avg_kp*100:.0f}%)",
-        title="[bold]RL Feedback Logged[/bold]",
-        border_style="cyan",
-        padding=(1, 2),
-    ))
-    console.print()
-
-
-# ---------------------------------------------------------------------------
-# Show weights
-# ---------------------------------------------------------------------------
-
-def cmd_weights(args):
-    w = _load_weights()
-    if not w:
-        console.print("[dim]No weights learned yet. Run feedback after some games.[/dim]")
-        return
-
-    for champ, ctx_map in w.items():
-        console.print(f"\n[bold cyan]{champ}[/bold cyan]")
-        for ctx_key, actions in ctx_map.items():
-            t = Table(title=f"Context: {ctx_key}", box=box.SIMPLE, show_header=True)
-            t.add_column("Action", style="cyan")
-            t.add_column("Score",  justify="right")
-            t.add_column("Games",  justify="right")
-
-            rows = sorted(actions.items(), key=lambda x: x[1]["score"], reverse=True)
-            for action, data in rows:
-                score = data["score"]
-                col   = "green" if score > 0.1 else ("red" if score < -0.1 else "yellow")
-                t.add_row(action, f"[{col}]{score:+.3f}[/{col}]", str(data["n"]))
-
-            console.print(t)
-
-
-# ---------------------------------------------------------------------------
-# Reset
-# ---------------------------------------------------------------------------
-
-def cmd_reset(args):
-    if WEIGHTS_FILE.exists():
-        WEIGHTS_FILE.unlink()
-    console.print("[green]Weights reset.[/green]")
-
-
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
 
 def main():
-    parser = argparse.ArgumentParser(description="RL feedback loop for recommendations")
-    sub = parser.add_subparsers(dest="cmd")
+    parser = argparse.ArgumentParser(description="Contextual bandit for keystone choice")
+    sub = parser.add_subparsers(dest="cmd", required=True)
 
-    p_fb = sub.add_parser("feedback", help="Log last game outcome and update weights")
-    p_fb.add_argument("account", choices=list(ACCOUNTS.keys()))
-    p_fb.add_argument("--match", default="", help="Specific match ID to log")
+    p = sub.add_parser("fetch", help="Pull an account's recent ranked games into the match cache")
+    p.add_argument("account", choices=list(ACCOUNTS.keys()))
+    p.add_argument("--games", type=int, default=20)
 
-    sub.add_parser("weights", help="Show learned weights")
-    sub.add_parser("reset",   help="Wipe all learned weights")
+    for name, help_text in (("summary", "Dataset and model size"),
+                            ("evaluate", "Chronological replay evaluation")):
+        p = sub.add_parser(name, help=help_text)
+        p.add_argument("--scope", choices=["all", "mine"], default="all")
+
+    p = sub.add_parser("show", help="Keystone estimates for a champion")
+    p.add_argument("champion")
+    p.add_argument("--scope", choices=["all", "mine"], default="all")
+
+    p = sub.add_parser("recommend", help="Rank keystones for a champion in a given matchup")
+    p.add_argument("champion")
+    p.add_argument("--ally", help='Your 4 teammates, comma-separated')
+    p.add_argument("--enemy", help='The 5 enemies, comma-separated')
+    p.add_argument("--explore", action="store_true", help="Rank by UCB instead of the shrunk mean")
+    p.add_argument("--scope", choices=["all", "mine"], default="all")
 
     args = parser.parse_args()
-    if args.cmd == "feedback": cmd_feedback(args)
-    elif args.cmd == "weights": cmd_weights(args)
-    elif args.cmd == "reset":   cmd_reset(args)
-    else:                       parser.print_help()
+    {"fetch": cmd_fetch, "summary": cmd_summary, "show": cmd_show,
+     "recommend": cmd_recommend, "evaluate": cmd_evaluate}[args.cmd](args)
 
 
 if __name__ == "__main__":
