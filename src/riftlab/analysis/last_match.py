@@ -19,7 +19,7 @@ from riftlab.riot import (
     BASE_ACCOUNT, _get, ACCOUNTS, console,
 )
 from riftlab.cache import get_match_cached, is_excluded
-from riftlab.advisors.pregame import get_recent_form, print_tilt_check
+from riftlab.analysis.form import get_recent_form, print_tilt_check
 
 load_dotenv()
 
